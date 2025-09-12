@@ -4,7 +4,7 @@
 airflow_settings.yaml
 
 # RSA keys
-# snowflake_rsa_key.pem  # Commented out so it's included in Docker builds
+snowflake_rsa_key.pem
 snowflake_rsa_key.pub
 
 # Python
