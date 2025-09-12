@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  whoop-extractor:
+    build: .
+    container_name: whoop-pipeline
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./export_out:/app/export_out
+      - ./.env:/app/.env
+    working_dir: /app
+    command: python extract/whoop_extractor.py
+    
+  whoop-auth:
+    build: .
+    container_name: whoop-auth-setup
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./.env:/app/.env
+    working_dir: /app
+    command: python extract/utils/auth.py
+    profiles:
+      - auth
+    stdin_open: true
+    tty: true
+
+  dbt-deps:
+    build: .
+    container_name: whoop-dbt-deps
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - DBT_PROFILES_DIR=/app/dbt
+    volumes:
+      - ./.env:/app/.env
+      - ./include/dbt:/app/dbt
+    working_dir: /app/dbt
+    command: dbt deps
+    profiles:
+      - dbt
+
+  dbt-run:
+    build: .
+    container_name: whoop-dbt-run
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - DBT_PROFILES_DIR=/app/dbt
+    volumes:
+      - ./.env:/app/.env
+      - ./include/dbt:/app/dbt
+    working_dir: /app/dbt
+    command: bash -c "dbt deps && dbt run --select tag:staging"
+    profiles:
+      - dbt
+
+  dbt-test:
+    build: .
+    container_name: whoop-dbt-test
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - DBT_PROFILES_DIR=/app/dbt
+    volumes:
+      - ./.env:/app/.env
+      - ./include/dbt:/app/dbt
+    working_dir: /app/dbt
+    command: bash -c "dbt deps && dbt test --select tag:staging"
+    profiles:
+      - dbt
+    depends_on:
+      - dbt-run

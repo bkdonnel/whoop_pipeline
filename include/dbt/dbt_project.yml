@@ -1,0 +1,31 @@
+name: 'whoop_dbt'
+version: '1.0.0'
+
+config-version: 2
+
+profile: 'whoop_snowflake'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_modules"
+
+models:
+  whoop_dbt:
+    raw:
+      +schema: raw
+      +materialized: view
+    staging:
+      +schema: staging
+      +materialized: incremental
+      +tags: ['staging']
+    marts:
+      +schema: marts
+      +materialized: table
+      +tags: ['marts']

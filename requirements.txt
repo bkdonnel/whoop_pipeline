@@ -1,0 +1,14 @@
+# Airflow providers
+apache-airflow-providers-snowflake==5.1.1
+astronomer-cosmos==1.10.2
+requests==2.31.0
+python-dotenv==1.0.0
+
+# dbt compatible with Astronomer runtime (includes snowflake connector)
+dbt-core>=1.8.0
+dbt-snowflake>=1.8.0
+
+# Additional dependencies  
+cryptography>=3.0.0
+# pandas>=2.0.0,<2.1.0  # Commented out due to compilation issues in Docker
+# astro-run-dag==0.2.1 # This package is needed for the astro run command. It will be removed before a deploy

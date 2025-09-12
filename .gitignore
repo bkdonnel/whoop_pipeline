@@ -1,0 +1,63 @@
+# Environment variables
+.env
+.env.astronomer
+airflow_settings.yaml
+
+# RSA keys
+# snowflake_rsa_key.pem  # Commented out so it's included in Docker builds
+snowflake_rsa_key.pub
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Export data
+export_out/*.csv
+
+# Logs
+*.log
+
+# dbt compiled files
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/compiled/
+dbt/.user.yml
+dbt/package-lock.yml
+dbt/profiles*.yml
+*.sql.compiled

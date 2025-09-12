@@ -1,0 +1,182 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Raw data from Whoop API extraction"
+    database: whoop
+    schema: raw
+    tables:
+      - name: sleep
+        description: "Raw sleep data from Whoop API"
+      - name: cycle
+        description: "Raw cycle data from Whoop API"  
+      - name: workout
+        description: "Raw workout data from Whoop API"
+      - name: recovery
+        description: "Raw recovery data from Whoop API"
+      - name: user
+        description: "Raw user profile data from Whoop API"
+
+models:
+  # ======================
+  # Sleep
+  # ======================
+  - name: stg_sleep
+    description: "Staging table for WHOOP sleep data with raw column names preserved and basic cleaning applied."
+    columns:
+      - name: id
+        description: "Unique identifier for the sleep record."
+        tests:
+          - not_null
+          - unique
+      - name: v1_id
+        description: "Legacy WHOOP identifier."
+      - name: user_id
+        description: "User identifier."
+        tests:
+          - not_null
+      - name: created_at
+        description: "Record creation timestamp."
+        tests:
+          - not_null
+      - name: updated_at
+        description: "Record last updated timestamp."
+      - name: start_time
+        description: "Sleep start timestamp."
+      - name: end_time
+        description: "Sleep end timestamp."
+      - name: timezone_offset
+        description: "Timezone offset in minutes."
+      - name: nap
+        description: "Whether the sleep event is a nap."
+      - name: score_state
+        description: "State of the sleep score."
+      - name: total_in_bed_time_milli
+        description: "Total time in bed in milliseconds."
+      - name: total_awake_time_milli
+        description: "Total awake time in milliseconds."
+      - name: total_no_data_time_milli
+        description: "Total no-data time in milliseconds."
+      - name: total_light_sleep_time_milli
+        description: "Total light sleep time in milliseconds."
+      - name: total_slow_wave_sleep_time_milli
+        description: "Total slow-wave sleep time in milliseconds."
+      - name: total_rem_sleep_time_milli
+        description: "Total REM sleep time in milliseconds."
+      - name: sleep_cycle_count
+        description: "Number of sleep cycles."
+
+  # ======================
+  # Cycle
+  # ======================
+  - name: stg_cycle
+    description: "Staging table for WHOOP cycle data with raw column names preserved."
+    columns:
+      - name: id
+        description: "Unique identifier for the cycle record."
+        tests:
+          - not_null
+          - unique
+      - name: user_id
+        description: "User identifier."
+        tests:
+          - not_null
+      - name: created_at
+        description: "Record creation timestamp."
+        tests:
+          - not_null
+      - name: updated_at
+        description: "Record last updated timestamp."
+      - name: start
+        description: "Cycle start timestamp."
+      - name: end
+        description: "Cycle end timestamp."
+      - name: timezone_offset
+        description: "Timezone offset in minutes."
+      - name: score_state
+        description: "State of the cycle score."
+      - name: strain
+        description: "Strain score for the cycle."
+      - name: kilojoules
+        description: "Energy expenditure in kilojoules."
+      - name: average_heart_rate
+        description: "Average heart rate during the cycle."
+      - name: max_heart_rate
+        description: "Maximum heart rate during the cycle."
+
+  # ======================
+  # Workout
+  # ======================
+  - name: stg_workout
+    description: "Staging table for WHOOP workout data with raw column names preserved."
+    columns:
+      - name: id
+        description: "Unique identifier for the workout record."
+        tests:
+          - not_null
+          - unique
+      - name: user_id
+        description: "User identifier."
+        tests:
+          - not_null
+      - name: created_at
+        description: "Record creation timestamp."
+        tests:
+          - not_null
+      - name: updated_at
+        description: "Record last updated timestamp."
+      - name: start
+        description: "Workout start timestamp."
+      - name: end
+        description: "Workout end timestamp."
+      - name: timezone_offset
+        description: "Timezone offset in minutes."
+      - name: sport_id
+        description: "Sport identifier for the workout."
+      - name: score_state
+        description: "State of the workout score."
+      - name: strain
+        description: "Strain score for the workout."
+      - name: kilojoules
+        description: "Energy expenditure in kilojoules."
+      - name: average_heart_rate
+        description: "Average heart rate during the workout."
+      - name: max_heart_rate
+        description: "Maximum heart rate during the workout."
+
+  # ======================
+  # Recovery
+  # ======================
+  - name: stg_recovery
+    description: "Staging table for WHOOP recovery data with raw column names preserved."
+    columns:
+      - name: CYCLE_ID
+        description: "Cycle identifier for the recovery record."
+        tests:
+          - not_null
+      - name: SLEEP_ID
+        description: "Sleep identifier for the recovery record."
+      - name: USER_ID
+        description: "User identifier."
+        tests:
+          - not_null
+      - name: CREATED_AT
+        description: "Record creation timestamp."
+        tests:
+          - not_null
+      - name: updated_at
+        description: "Record last updated timestamp."
+      - name: score_state
+        description: "State of the recovery score."
+      - name: user_calibrating
+        description: "Whether the user is calibrating."
+      - name: recovery_score
+        description: "Recovery score as a percentage."
+      - name: resting_heart_rate
+        description: "Resting heart rate in bpm."
+      - name: hrv_rmssd_milli
+        description: "Heart rate variability (RMSSD) in milliseconds."
+      - name: spo2_percentage
+        description: "Blood oxygen saturation percentage."
+      - name: skin_temp_celsius
+        description: "Skin temperature in degrees Celsius."
