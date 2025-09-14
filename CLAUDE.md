@@ -23,16 +23,20 @@ whoop_pipeline/
 │           └── state_manager.py    # Pipeline state tracking
 ├── include/dbt/              # dbt transformations
 │   ├── models/
-│   │   └── staging/          # Staging models for raw data
-│   │       ├── stg_sleep.sql
-│   │       ├── stg_cycle.sql
-│   │       ├── stg_workout.sql
-│   │       ├── stg_recovery.sql
-│   │       └── schema.yml    # Model and source definitions
+│   │   ├── staging/          # Staging models for raw data
+│   │   │   ├── stg_sleep.sql
+│   │   │   ├── stg_cycle.sql
+│   │   │   ├── stg_workout.sql
+│   │   │   ├── stg_recovery.sql
+│   │   │   └── schema.yml    # Model and source definitions
+│   │   └── marts/            # Dimensional models for analytics
+│   │       ├── dimensions/   # Dimension tables
+│   │       │   └── dim_date.sql # Date dimension with dbt-date package
+│   │       └── schema.yml    # Marts documentation and tests
 │   ├── macros/
 │   │   ├── generate_staging_model.sql  # Automated staging model creation
 │   │   └── get_custom_schema.sql       # Schema naming logic
-│   ├── packages.yml          # dbt package dependencies
+│   ├── packages.yml          # dbt package dependencies (includes dbt-date)
 │   ├── dbt_project.yml       # dbt configuration
 │   └── profiles.yml          # Snowflake connection profile
 ├── .env                     # Environment variables (credentials)
@@ -66,10 +70,11 @@ astro deploy logs
 The project uses Astronomer Cosmos for dbt integration, providing superior debugging and observability:
 
 1. **`whoop_pipeline_cosmos_simple`** (PRODUCTION)
-   - Scheduled every 3 hours 
-   - Full pipeline: extract → individual dbt tasks → quality checks
+   - Scheduled every 3 hours
+   - Full pipeline: extract → staging models → marts models → quality checks
    - Each dbt model runs as separate Airflow task with dedicated logs
    - Connection: `snowflake_cosmos` (configured in Airflow UI)
+   - Includes dimensional modeling with `dim_date` table
 
 2. **`whoop_pipeline_cosmos_test`** (TESTING/DEBUGGING)
    - Manual trigger only
@@ -179,13 +184,25 @@ The pipeline extracts data directly to Snowflake tables in the `whoop.raw` schem
 
 ## dbt Transformations
 
-The pipeline includes dbt models to transform raw Whoop data into staging tables suitable for analytics using automated staging model generation:
+The pipeline includes dbt models to transform raw Whoop data through staging and marts layers using automated model generation:
 
 ### Staging Models
 - `stg_sleep` - Sleep data with millisecond to hour/minute conversions
-- `stg_cycle` - Physiological cycle data with basic type casting  
+- `stg_cycle` - Physiological cycle data with basic type casting
 - `stg_workout` - Exercise data with heart rate zone time conversions
 - `stg_recovery` - Recovery metrics with basic type casting
+- `stg_user` - User profile data
+
+### Marts Layer (Dimensional Models)
+- `dim_date` - Comprehensive date dimension using dbt-date package
+  - Date range: 2020-01-01 to 2027-12-31
+  - Includes season, training periods, and time-based analytics features
+  - Surrogate key generation with dbt_utils
+  - Ready for fact table joins and time-series analysis
+
+### Package Dependencies
+- **dbt-date**: Provides robust date dimension functionality
+- **dbt-utils**: Utility macros for surrogate keys and common transformations
 
 ### Automated Model Generation
 Uses custom macros for consistent staging model creation:
@@ -196,10 +213,13 @@ Uses custom macros for consistent staging model creation:
 
 ### Data Flow
 ```
+whoop.raw.*        → whoop.staging.stg_*      → whoop.marts.*
 whoop.raw.sleep    → whoop.staging.stg_sleep
-whoop.raw.cycle    → whoop.staging.stg_cycle  
+whoop.raw.cycle    → whoop.staging.stg_cycle
 whoop.raw.workout  → whoop.staging.stg_workout
 whoop.raw.recovery → whoop.staging.stg_recovery
+whoop.raw.user     → whoop.staging.stg_user
+                                               → whoop.marts.dim_date
 ```
 
 ### Testing
@@ -208,6 +228,7 @@ Comprehensive data quality tests include:
 - Value range validations for metrics
 - Accepted values for categorical fields
 - Data type consistency checks
+- Date dimension validation (uniqueness, accepted values)
 
 ## API Integration
 
@@ -347,7 +368,19 @@ WHERE table_name = 'user';
 ```
 
 ## Production Schedule
-- **DAG**: `whoop_pipeline_incremental` 
+- **DAG**: `whoop_pipeline_cosmos_simple` (CURRENT PRODUCTION)
 - **Schedule**: Every 3 hours
+- **Pipeline Flow**: extract → staging models → marts models → quality checks
 - **Expected Records**: 0-25 records per endpoint per run (incremental)
 - **Deployment**: Astronomer Cloud (https://cmeujt9am0hm801p5xw58ivqw.astronomer.run/)
+
+## Schema Overview
+- **Raw Layer**: `whoop.raw.*` - Direct API extracts with minimal processing
+- **Staging Layer**: `whoop.staging.*` - Cleaned, typed, and transformed data
+- **Marts Layer**: `whoop.marts.*` - Dimensional models ready for analytics
+  - Currently includes `dim_date` with comprehensive date attributes
+  - Future fact tables will reference staging models and date dimension
+
+## Additional Files
+- **MODELING.md**: Comprehensive guide for implementing dimensional modeling with fact and dimension tables
+- **packages.yml**: Contains dbt package dependencies including dbt-date and dbt-utils

@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "Date dimension table with comprehensive date attributes and Whoop-specific enhancements"
+    columns:
+      - name: date_sk
+        description: "Surrogate key for the date dimension"
+        tests:
+          - unique
+          - not_null
+      - name: date_day
+        description: "Calendar date (primary business key)"
+        tests:
+          - unique
+          - not_null
+      - name: year_number
+        description: "4-digit year"
+      - name: month_of_year
+        description: "Month number (1-12)"
+      - name: month_name
+        description: "Full month name"
+      - name: month_name_short
+        description: "Abbreviated month name"
+      - name: day_of_month
+        description: "Day of the month (1-31)"
+      - name: day_of_week
+        description: "Day of week number (1=Sunday, 7=Saturday)"
+      - name: day_of_week_name
+        description: "Full day name"
+      - name: day_of_week_name_short
+        description: "Abbreviated day name"
+      - name: week_start_date
+        description: "Start date of the week"
+      - name: week_end_date
+        description: "End date of the week"
+      - name: week_of_year
+        description: "Week number within the year"
+      - name: quarter_of_year
+        description: "Quarter number (1-4)"
+      - name: quarter_start_date
+        description: "Start date of the quarter"
+      - name: quarter_end_date
+        description: "End date of the quarter"
+      - name: is_weekend
+        description: "Boolean flag indicating if date is weekend"
+      - name: is_leap_year
+        description: "Boolean flag indicating if year is leap year"
+      - name: season
+        description: "Season name (Winter, Spring, Summer, Fall)"
+        tests:
+          - accepted_values:
+              values: ['Winter', 'Spring', 'Summer', 'Fall']
+      - name: training_period
+        description: "Training periodization phase"
+        tests:
+          - accepted_values:
+              values: ['Base Building', 'Build Phase', 'Peak Season', 'Recovery Phase']
+      - name: days_from_today
+        description: "Number of days from current date (negative for past, positive for future)"

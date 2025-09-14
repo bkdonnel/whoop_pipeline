@@ -96,8 +96,12 @@ dbt_project_config = ProjectConfig(
     dbt_project_path="/usr/local/airflow/include/dbt",
 )
 
-render_config = RenderConfig(
+staging_render_config = RenderConfig(
     select=["tag:staging"],  # Only run staging models
+)
+
+marts_render_config = RenderConfig(
+    select=["tag:marts", "--exclude", "models/marts/dimensions/dim_date"],  # Exclude dim_date from regular runs
 )
 
 profile_config = ProfileConfig(
@@ -116,12 +120,23 @@ execution_config = ExecutionConfig(
 )
 
 # Create dbt task group for staging models
-dbt_task_group = DbtTaskGroup(
+dbt_staging_task_group = DbtTaskGroup(
     group_id="dbt_staging_models",
     project_config=dbt_project_config,
     profile_config=profile_config,
     execution_config=execution_config,
-    render_config=render_config,
+    render_config=staging_render_config,
+    operator_args={"full_refresh": True},  # Add full refresh flag for schema sync
+    dag=dag,
+)
+
+# Create dbt task group for marts models (including dim_date)
+dbt_marts_task_group = DbtTaskGroup(
+    group_id="dbt_marts_models",
+    project_config=dbt_project_config,
+    profile_config=profile_config,
+    execution_config=execution_config,
+    render_config=marts_render_config,
     dag=dag,
 )
 
@@ -133,4 +148,4 @@ quality_check_task = PythonOperator(
 )
 
 # Set up task dependencies
-extract_task >> dbt_task_group >> quality_check_task
+extract_task >> dbt_staging_task_group >> dbt_marts_task_group >> quality_check_task

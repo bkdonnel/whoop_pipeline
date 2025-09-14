@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "Date dimension table for time-series analysis of Whoop data"
+    columns:
+      - name: date_sk
+        description: "Surrogate key for the date dimension"
+        data_tests:
+          - unique
+          - not_null
+      - name: date_actual
+      
