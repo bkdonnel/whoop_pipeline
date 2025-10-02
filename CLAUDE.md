@@ -370,16 +370,60 @@ WHERE table_name = 'user';
 ## Production Schedule
 - **DAG**: `whoop_pipeline_cosmos_simple` (CURRENT PRODUCTION)
 - **Schedule**: Every 3 hours
-- **Pipeline Flow**: extract → staging models → marts models → quality checks
+- **Pipeline Flow**: extract → staging models → intermediate models → marts models → quality checks
 - **Expected Records**: 0-25 records per endpoint per run (incremental)
 - **Deployment**: Astronomer Cloud (https://cmeujt9am0hm801p5xw58ivqw.astronomer.run/)
+- **Status**: ✅ **FULLY OPERATIONAL** (as of 2025-09-23)
 
 ## Schema Overview
 - **Raw Layer**: `whoop.raw.*` - Direct API extracts with minimal processing
 - **Staging Layer**: `whoop.staging.*` - Cleaned, typed, and transformed data
+- **Intermediate Layer**: `whoop.staging.*` - Advanced analytics and calculations
+  - `int_recovery_percentiles` - Rolling percentile calculations for recovery metrics
 - **Marts Layer**: `whoop.marts.*` - Dimensional models ready for analytics
-  - Currently includes `dim_date` with comprehensive date attributes
-  - Future fact tables will reference staging models and date dimension
+  - `dim_date` - Comprehensive date dimension with dbt-date package
+  - `dim_user` - User dimension table
+  - `fact_daily_recovery` - Daily recovery metrics fact table
+
+## Recent Fixes (September 2025)
+
+### ✅ Fixed: int_recovery_percentiles Model Issues
+**Problem**: Multiple errors preventing the intermediate recovery percentiles model from running:
+1. `PERCENT_RANK()` with sliding window frames not supported in Snowflake
+2. Invalid column references (`recovery_date` vs `CREATED_AT`)
+3. Post-hook index creation on non-hybrid tables
+
+**Solutions Applied**:
+1. **Manual Percentile Calculation**: Replaced `PERCENT_RANK()` with equivalent manual calculation using `SUM(CASE WHEN...)` and `COUNT()` to achieve identical mathematical results while supporting sliding window frames
+2. **Column Reference Fix**: Updated to use actual `stg_recovery` columns (`r.CREATED_AT`, `r.RECOVERY_SCORE`, `r.HRV_RMSSD_MILLI`, etc.)
+3. **Removed Post-Hook**: Eliminated index creation attempt on regular tables
+
+**Result**: `int_recovery_percentiles` now successfully calculates rolling 365-day percentiles for recovery metrics.
+
+### ✅ Fixed: fact_daily_recovery Test Failures
+**Problem**: `dbt_utils.expression_is_true` test causing SQL syntax errors when validating recovery score ranges (0-100).
+
+**Solution**: Replaced problematic test with `dbt_utils.accepted_range` test:
+```yaml
+# Before (failing):
+- dbt_utils.expression_is_true:
+    arguments:
+      expression: "recovery_score >= 0 AND recovery_score <= 100"
+
+# After (working):
+- dbt_utils.accepted_range:
+    min_value: 0
+    max_value: 100
+```
+
+**Result**: All data quality tests now pass successfully.
+
+### 🔧 Current Pipeline Status
+- **All Models**: ✅ Running successfully
+- **All Tests**: ✅ Passing
+- **Data Quality**: ✅ Validated with range checks and not-null constraints
+- **Percentile Calculations**: ✅ Working with 365-day rolling windows
+- **Deployment**: ✅ Image `deploy-2025-09-23T16-21-05` deployed successfully
 
 ## Additional Files
 - **MODELING.md**: Comprehensive guide for implementing dimensional modeling with fact and dimension tables

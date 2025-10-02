@@ -57,6 +57,7 @@ test_vars_task = PythonOperator(
 # Cosmos dbt configuration
 dbt_project_config = ProjectConfig(
     dbt_project_path="/usr/local/airflow/include/dbt",
+    dbt_vars={"DBT_PACKAGES_HUB_URL": "https://hub.getdbt.com/"},
 )
 
 render_config = RenderConfig(

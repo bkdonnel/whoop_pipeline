@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Whoop Marts ERD</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .erd-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .table {
+            border: 2px solid #333;
+            margin: 20px;
+            display: inline-block;
+            vertical-align: top;
+            background: white;
+        }
+        .table-header {
+            background-color: #e0e0e0;
+            padding: 8px 12px;
+            font-weight: bold;
+            border-bottom: 2px solid #333;
+            text-align: center;
+        }
+        .table-row {
+            padding: 4px 12px;
+            border-bottom: 1px solid #ccc;
+            font-size: 12px;
+        }
+        .table-row:last-child {
+            border-bottom: none;
+        }
+        .pk {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        .fk {
+            color: #1976d2;
+            font-style: italic;
+        }
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .container {
+            position: relative;
+        }
+        .table {
+            position: relative;
+            z-index: 1;
+        }
+        .relationship-line {
+            stroke: #666;
+            stroke-width: 2;
+            fill: none;
+        }
+        .relationship-arrow {
+            fill: #666;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .legend {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Whoop Marts - Entity Relationship Diagram</h1>
+
+    <div class="erd-container">
+        <div class="container">
+            <svg id="relationships"></svg>
+            <!-- Center: Dimension Tables -->
+            <div style="text-align: center; margin: 40px 0;">
+                <div class="table" id="dim_user" style="margin: 0 50px;">
+                    <div class="table-header">DIM_USER</div>
+                    <div class="table-row"><span class="pk">user_sk</span> NUMBER PK</div>
+                    <div class="table-row">user_id TEXT</div>
+                    <div class="table-row">first_name TEXT</div>
+                    <div class="table-row">last_name TEXT</div>
+                    <div class="table-row">email TEXT</div>
+                    <div class="table-row">birth_date DATE</div>
+                    <div class="table-row">gender TEXT</div>
+                    <div class="table-row">is_current BOOLEAN</div>
+                </div>
+
+                <div class="table" id="dim_date" style="margin: 0 50px;">
+                    <div class="table-header">DIM_DATE</div>
+                    <div class="table-row"><span class="pk">date_sk</span> NUMBER PK</div>
+                    <div class="table-row">date_day DATE</div>
+                    <div class="table-row">year_number NUMBER</div>
+                    <div class="table-row">month_name TEXT</div>
+                    <div class="table-row">day_name TEXT</div>
+                    <div class="table-row">week_of_year NUMBER</div>
+                    <div class="table-row">season TEXT</div>
+                    <div class="table-row">training_period TEXT</div>
+                </div>
+            </div>
+
+            <!-- Left Column: Fact Tables -->
+            <div style="display: flex; justify-content: space-between; margin-top: 60px;">
+                <div style="flex: 1; text-align: center;">
+                    <div class="table" id="fact_recovery" style="margin: 0 auto;">
+                        <div class="table-header">FACT_DAILY_RECOVERY</div>
+                        <div class="table-row"><span class="pk">recovery_sk</span> NUMBER PK</div>
+                        <div class="table-row"><span class="fk">user_sk</span> NUMBER FK</div>
+                        <div class="table-row"><span class="fk">date_sk</span> NUMBER FK</div>
+                        <div class="table-row">recovery_score NUMBER</div>
+                        <div class="table-row">hrv_rmssd NUMBER</div>
+                        <div class="table-row">resting_heart_rate NUMBER</div>
+                        <div class="table-row">skin_temp_celsius NUMBER</div>
+                        <div class="table-row">respiratory_rate NUMBER</div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Fact Strain -->
+                <div style="flex: 1; text-align: center;">
+                    <div class="table" id="fact_strain" style="margin: 0 auto;">
+                        <div class="table-header">FACT_DAILY_STRAIN</div>
+                        <div class="table-row"><span class="pk">strain_sk</span> TEXT PK</div>
+                        <div class="table-row"><span class="fk">user_sk</span> NUMBER FK</div>
+                        <div class="table-row"><span class="fk">date_sk</span> NUMBER FK</div>
+                        <div class="table-row">day_strain NUMBER</div>
+                        <div class="table-row">workout_strain NUMBER</div>
+                        <div class="table-row">calories_burned NUMBER</div>
+                        <div class="table-row">average_heart_rate NUMBER</div>
+                        <div class="table-row">workout_count NUMBER</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom: Metrics Tables (3 rows of 2) -->
+            <div style="margin-top: 60px;">
+                <div style="display: flex; justify-content: space-around; margin-bottom: 30px;">
+                    <div class="table" id="recovery_momentum">
+                        <div class="table-header">RECOVERY_MOMENTUM</div>
+                        <div class="table-row"><span class="fk">user_sk</span> NUMBER FK</div>
+                        <div class="table-row"><span class="fk">date_sk</span> NUMBER FK</div>
+                        <div class="table-row">recovery_score NUMBER</div>
+                        <div class="table-row">momentum_score NUMBER</div>
+                        <div class="table-row">momentum_category TEXT</div>
+                    </div>
+
+                    <div class="table" id="strain_efficiency">
+                        <div class="table-header">STRAIN_RECOVERY_EFFICIENCY</div>
+                        <div class="table-row"><span class="fk">user_sk</span> NUMBER FK</div>
+                        <div class="table-row"><span class="fk">date_sk</span> NUMBER FK</div>
+                        <div class="table-row">efficiency_ratio NUMBER</div>
+                        <div class="table-row">efficiency_category TEXT</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-around; margin-bottom: 30px;">
+                    <div class="table" id="training_readiness">
+                        <div class="table-header">TRAINING_READINESS_GAP</div>
+                        <div class="table-row"><span class="fk">user_sk</span> NUMBER FK</div>
+                        <div class="table-row"><span class="fk">date_sk</span> NUMBER FK</div>
+                        <div class="table-row">readiness_gap NUMBER</div>
+                        <div class="table-row">gap_category TEXT</div>
+                        <div class="table-row">overtraining_risk BOOLEAN</div>
+                    </div>
+
+                    <div class="table" id="recovery_volatility">
+                        <div class="table-header">RECOVERY_VOLATILITY</div>
+                        <div class="table-row"><span class="fk">user_sk</span> NUMBER FK</div>
+                        <div class="table-row"><span class="fk">date_sk</span> NUMBER FK</div>
+                        <div class="table-row">volatility_7d FLOAT</div>
+                        <div class="table-row">volatility_category TEXT</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-around;">
+                    <div class="table" id="autonomic_balance">
+                        <div class="table-header">AUTONOMIC_BALANCE</div>
+                        <div class="table-row"><span class="fk">user_sk</span> NUMBER FK</div>
+                        <div class="table-row"><span class="fk">date_sk</span> NUMBER FK</div>
+                        <div class="table-row">hrv_rhr_ratio NUMBER</div>
+                        <div class="table-row">balance_category TEXT</div>
+                    </div>
+
+                    <div class="table" id="seasonal_adaptation">
+                        <div class="table-header">SEASONAL_ADAPTATION</div>
+                        <div class="table-row"><span class="fk">user_sk</span> NUMBER FK</div>
+                        <div class="table-row"><span class="fk">date_sk</span> NUMBER FK</div>
+                        <div class="table-row">season TEXT</div>
+                        <div class="table-row">adaptation_category TEXT</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><span class="pk">PK</span> = Primary Key</div>
+            <div class="legend-item"><span class="fk">FK</span> = Foreign Key</div>
+            <div class="legend-item">Grain: One row per user per day</div>
+            <div class="legend-item">Schema Type: Star Schema</div>
+        </div>
+    </div>
+
+    <script>
+        // Draw relationship lines after page loads
+        window.addEventListener('load', function() {
+            const svg = document.getElementById('relationships');
+            const svgNS = "http://www.w3.org/2000/svg";
+
+            // Helper function to get element center position
+            function getCenter(elementId) {
+                const el = document.getElementById(elementId);
+                const rect = el.getBoundingClientRect();
+                const container = document.querySelector('.container').getBoundingClientRect();
+                return {
+                    x: rect.left - container.left + rect.width / 2,
+                    y: rect.top - container.top + rect.height / 2,
+                    top: rect.top - container.top,
+                    bottom: rect.bottom - container.top,
+                    left: rect.left - container.left,
+                    right: rect.right - container.left
+                };
+            }
+
+            // Helper to draw line
+            function drawLine(from, to) {
+                const line = document.createElementNS(svgNS, 'path');
+                const d = `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+                line.setAttribute('d', d);
+                line.setAttribute('class', 'relationship-line');
+                svg.appendChild(line);
+            }
+
+            // DIM_USER relationships
+            const dimUser = getCenter('dim_user');
+            const factRecovery = getCenter('fact_recovery');
+            const factStrain = getCenter('fact_strain');
+
+            // DIM_DATE relationships
+            const dimDate = getCenter('dim_date');
+
+            // Metrics tables
+            const recoveryMomentum = getCenter('recovery_momentum');
+            const strainEfficiency = getCenter('strain_efficiency');
+            const trainingReadiness = getCenter('training_readiness');
+            const recoveryVolatility = getCenter('recovery_volatility');
+            const autonomicBalance = getCenter('autonomic_balance');
+            const seasonalAdaptation = getCenter('seasonal_adaptation');
+
+            // Draw lines from DIM_USER to FACT tables
+            drawLine({x: dimUser.x, y: dimUser.bottom}, {x: factRecovery.left, y: factRecovery.top});
+            drawLine({x: dimUser.x, y: dimUser.bottom}, {x: factStrain.right, y: factStrain.top});
+
+            // Draw lines from DIM_DATE to FACT tables
+            drawLine({x: dimDate.x, y: dimDate.bottom}, {x: factRecovery.right, y: factRecovery.top});
+            drawLine({x: dimDate.x, y: dimDate.bottom}, {x: factStrain.left, y: factStrain.top});
+
+            // Draw lines from DIM_USER to all metrics tables
+            drawLine({x: dimUser.x, y: dimUser.bottom}, {x: recoveryMomentum.x, y: recoveryMomentum.top});
+            drawLine({x: dimUser.x, y: dimUser.bottom}, {x: strainEfficiency.x, y: strainEfficiency.top});
+            drawLine({x: dimUser.x, y: dimUser.bottom}, {x: trainingReadiness.x, y: trainingReadiness.top});
+            drawLine({x: dimUser.x, y: dimUser.bottom}, {x: recoveryVolatility.x, y: recoveryVolatility.top});
+            drawLine({x: dimUser.x, y: dimUser.bottom}, {x: autonomicBalance.x, y: autonomicBalance.top});
+            drawLine({x: dimUser.x, y: dimUser.bottom}, {x: seasonalAdaptation.x, y: seasonalAdaptation.top});
+
+            // Draw lines from DIM_DATE to all metrics tables
+            drawLine({x: dimDate.x, y: dimDate.bottom}, {x: recoveryMomentum.x, y: recoveryMomentum.top});
+            drawLine({x: dimDate.x, y: dimDate.bottom}, {x: strainEfficiency.x, y: strainEfficiency.top});
+            drawLine({x: dimDate.x, y: dimDate.bottom}, {x: trainingReadiness.x, y: trainingReadiness.top});
+            drawLine({x: dimDate.x, y: dimDate.bottom}, {x: recoveryVolatility.x, y: recoveryVolatility.top});
+            drawLine({x: dimDate.x, y: dimDate.bottom}, {x: autonomicBalance.x, y: autonomicBalance.top});
+            drawLine({x: dimDate.x, y: dimDate.bottom}, {x: seasonalAdaptation.x, y: seasonalAdaptation.top});
+        });
+    </script>
+</body>
+</html>

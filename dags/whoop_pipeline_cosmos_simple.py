@@ -94,6 +94,7 @@ extract_task = PythonOperator(
 # Cosmos dbt configuration
 dbt_project_config = ProjectConfig(
     dbt_project_path="/usr/local/airflow/include/dbt",
+    dbt_vars={"DBT_PACKAGES_HUB_URL": "https://hub.getdbt.com/"},
 )
 
 staging_render_config = RenderConfig(
@@ -101,7 +102,7 @@ staging_render_config = RenderConfig(
 )
 
 marts_render_config = RenderConfig(
-    select=["tag:marts", "--exclude", "models/marts/dimensions/dim_date"],  # Exclude dim_date from regular runs
+    select=["tag:marts", "tag:metrics"],  # Include all marts models and metrics models
 )
 
 profile_config = ProfileConfig(
@@ -126,7 +127,7 @@ dbt_staging_task_group = DbtTaskGroup(
     profile_config=profile_config,
     execution_config=execution_config,
     render_config=staging_render_config,
-    operator_args={"full_refresh": True},  # Add full refresh flag for schema sync
+    operator_args={"full_refresh": True, "install_deps": True},  # Install dependencies and full refresh
     dag=dag,
 )
 
@@ -137,6 +138,7 @@ dbt_marts_task_group = DbtTaskGroup(
     profile_config=profile_config,
     execution_config=execution_config,
     render_config=marts_render_config,
+    operator_args={"install_deps": True},  # Install dependencies
     dag=dag,
 )
 

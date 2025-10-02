@@ -1,0 +1,48 @@
+version: 2
+
+models:
+  - name: recovery_momentum
+    description: "Tracks the velocity and direction of recovery score changes over time"
+    columns:
+      - name: recovery_momentum_score
+        description: "Momentum score (-100 to +100). Positive = improving, negative = declining"
+      - name: momentum_category
+        description: "Categorical interpretation of momentum"
+        
+  - name: strain_recovery_efficiency
+    description: "Measures how efficiently you recover relative to strain load"
+    columns:
+      - name: recovery_efficiency_ratio
+        description: "Recovery change per unit of strain. Higher = better recovery efficiency"
+        
+  - name: recovery_volatility
+    description: "Measures consistency and stability of recovery scores"
+    columns:
+      - name: volatility_30d
+        description: "30-day standard deviation of recovery scores"
+        
+  - name: strain_sustainability
+    description: "Tracks how well you stay within optimal strain ranges"
+    columns:
+      - name: sustainability_score_30d
+        description: "Sustainability score (0-100). Higher = more sustainable training"
+        
+  - name: seasonal_adaptation
+    description: "Compares current recovery to seasonal baselines"
+    columns:
+      - name: seasonal_adaptation_index
+        description: "Deviation from seasonal baseline. Positive = better than typical for season"
+        
+  - name: autonomic_balance
+    description: "Composite score of autonomic nervous system health"
+    columns:
+      - name: autonomic_balance_score
+        description: "Weighted composite of HRV, RHR, and respiratory rate percentiles"
+        
+  - name: training_readiness_gap
+    description: "Gap between body readiness and training recommendations"
+    columns:
+      - name: readiness_motivation_gap
+        description: "Difference between recovery state and recommended training load"
+      - name: overtraining_risk_flag
+        description: "Flag for potential overtraining risk"

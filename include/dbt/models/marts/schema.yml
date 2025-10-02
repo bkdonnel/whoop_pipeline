@@ -1,60 +1,305 @@
 version: 2
 
 models:
-  - name: dim_date
-    description: "Date dimension table with comprehensive date attributes and Whoop-specific enhancements"
+  # ======================
+  # Fact Tables
+  # ======================
+  - name: fact_daily_strain
+    description: "Daily strain and energy expenditure metrics from Whoop devices. Contains one record per user per day with total strain, workout strain, and heart rate zone data."
+
     columns:
+      # Primary and Foreign Keys
+      - name: strain_sk
+        description: "Surrogate key for the daily strain fact table"
+        tests:
+          - unique
+          - not_null
+
+      - name: user_sk
+        description: "Foreign key to dim_user table"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_user')
+              field: user_sk
+
       - name: date_sk
-        description: "Surrogate key for the date dimension"
+        description: "Foreign key to dim_date table"
         tests:
-          - unique
           - not_null
-      - name: date_day
-        description: "Calendar date (primary business key)"
+          - relationships:
+              to: ref('dim_date')
+              field: date_sk
+
+      # Core Strain Metrics
+      - name: day_strain
+        description: "Total cardiovascular strain for the entire day (0-21 scale). Includes workouts, daily activities, and stress response."
         tests:
-          - unique
           - not_null
-      - name: year_number
-        description: "4-digit year"
-      - name: month_of_year
-        description: "Month number (1-12)"
-      - name: month_name
-        description: "Full month name"
-      - name: month_name_short
-        description: "Abbreviated month name"
-      - name: day_of_month
-        description: "Day of the month (1-31)"
-      - name: day_of_week
-        description: "Day of week number (1=Sunday, 7=Saturday)"
-      - name: day_of_week_name
-        description: "Full day name"
-      - name: day_of_week_name_short
-        description: "Abbreviated day name"
-      - name: week_start_date
-        description: "Start date of the week"
-      - name: week_end_date
-        description: "End date of the week"
-      - name: week_of_year
-        description: "Week number within the year"
-      - name: quarter_of_year
-        description: "Quarter number (1-4)"
-      - name: quarter_start_date
-        description: "Start date of the quarter"
-      - name: quarter_end_date
-        description: "End date of the quarter"
-      - name: is_weekend
-        description: "Boolean flag indicating if date is weekend"
-      - name: is_leap_year
-        description: "Boolean flag indicating if year is leap year"
-      - name: season
-        description: "Season name (Winter, Spring, Summer, Fall)"
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 21
+              inclusive: true
+
+      - name: workout_strain
+        description: "Strain accumulated from formal workout sessions only (subset of day_strain)"
+
+      - name: optimal_strain_min
+        description: "Lower bound of Whoop's recommended strain range for optimal training"
         tests:
-          - accepted_values:
-              values: ['Winter', 'Spring', 'Summer', 'Fall']
-      - name: training_period
-        description: "Training periodization phase"
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 21
+              inclusive: true
+              config:
+                where: "optimal_strain_min IS NOT NULL"
+
+      - name: optimal_strain_max
+        description: "Upper bound of Whoop's recommended strain range for optimal training"
         tests:
-          - accepted_values:
-              values: ['Base Building', 'Build Phase', 'Peak Season', 'Recovery Phase']
-      - name: days_from_today
-        description: "Number of days from current date (negative for past, positive for future)"
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 21
+              inclusive: true
+              config:
+                where: "optimal_strain_max IS NOT NULL"
+
+      # Energy and Heart Rate
+      - name: calories_burned
+        description: "Total calories burned during the day (including BMR and activity)"
+        tests:
+          - not_null
+
+      - name: average_heart_rate
+        description: "Average heart rate across the entire day (beats per minute)"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 40
+              max_value: 150
+              inclusive: true
+              config:
+                where: "average_heart_rate IS NOT NULL"
+
+      - name: max_heart_rate
+        description: "Maximum heart rate recorded during the day (beats per minute)"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 60
+              max_value: 220
+              inclusive: true
+              config:
+                where: "max_heart_rate IS NOT NULL"
+
+      # Heart Rate Zones
+      - name: zone_0_minutes
+        description: "Minutes spent in Zone 0 (<50% max HR) - very light activity"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1440
+              inclusive: true
+              config:
+                where: "zone_0_minutes IS NOT NULL"
+
+      - name: zone_1_minutes
+        description: "Minutes spent in Zone 1 (50-60% max HR) - light activity"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1440
+              inclusive: true
+              config:
+                where: "zone_1_minutes IS NOT NULL"
+
+      - name: zone_2_minutes
+        description: "Minutes spent in Zone 2 (60-70% max HR) - moderate activity"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1440
+              inclusive: true
+              config:
+                where: "zone_2_minutes IS NOT NULL"
+
+      - name: zone_3_minutes
+        description: "Minutes spent in Zone 3 (70-80% max HR) - vigorous activity"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1440
+              inclusive: true
+              config:
+                where: "zone_3_minutes IS NOT NULL"
+
+      - name: zone_4_minutes
+        description: "Minutes spent in Zone 4 (80-90% max HR) - hard activity"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1440
+              inclusive: true
+              config:
+                where: "zone_4_minutes IS NOT NULL"
+
+      - name: zone_5_minutes
+        description: "Minutes spent in Zone 5 (>90% max HR) - maximum effort"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1440
+              inclusive: true
+              config:
+                where: "zone_5_minutes IS NOT NULL"
+
+      # Workout Insights (from workout aggregation)
+      - name: workout_count
+        description: "Number of formal workout sessions recorded for this day"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 10
+              inclusive: true
+
+      - name: total_workout_minutes
+        description: "Total duration of formal workouts in minutes"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 600
+              inclusive: true
+              config:
+                where: "total_workout_minutes IS NOT NULL"
+
+      - name: max_workout_strain
+        description: "Strain score from the most intense workout of the day"
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 21
+              inclusive: true
+              config:
+                where: "max_workout_strain IS NOT NULL"
+
+      - name: workout_types
+        description: "Array of workout activity types performed during the day"
+
+      # Audit Fields
+      - name: created_timestamp
+        description: "Timestamp when this record was created in the data warehouse"
+        tests:
+          - not_null
+
+      - name: source_created_at
+        description: "Timestamp when the original record was created in Whoop's system"
+        tests:
+          - not_null
+
+      - name: source_updated_at
+        description: "Timestamp when the original record was last updated in Whoop's system"
+        tests:
+          - not_null
+
+      - name: cycle_date
+        description: "The date this strain data represents (for debugging)"
+        tests:
+          - not_null
+
+    # Table-level tests
+    tests:
+      # Unique constraint on user + date combination
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - user_sk
+            - date_sk
+
+      # Reasonable heart rate zone totals (shouldn't exceed 24 hours)
+      - dbt_utils.expression_is_true:
+          expression: "(COALESCE(zone_0_minutes,0) + COALESCE(zone_1_minutes,0) + COALESCE(zone_2_minutes,0) + COALESCE(zone_3_minutes,0) + COALESCE(zone_4_minutes,0) + COALESCE(zone_5_minutes,0)) <= 1440"
+          config:
+            where: "zone_0_minutes IS NOT NULL OR zone_1_minutes IS NOT NULL OR zone_2_minutes IS NOT NULL OR zone_3_minutes IS NOT NULL OR zone_4_minutes IS NOT NULL OR zone_5_minutes IS NOT NULL"
+
+
+      # Data freshness - no records older than 3 years
+      - dbt_utils.expression_is_true:
+          expression: "cycle_date >= CURRENT_DATE - INTERVAL '3 years'"
+
+      # No future dates
+      - dbt_utils.expression_is_true:
+          expression: "cycle_date <= CURRENT_DATE"
+
+    # Documentation metadata
+    meta:
+      owner: "analytics_team"
+      contains_pii: false
+      data_source: "whoop_api"
+      refresh_frequency: "daily"
+
+    # Freshness check
+    freshness:
+      warn_after: {count: 2, period: day}
+      error_after: {count: 7, period: day}
+      filter: created_timestamp > '2024-01-01'
+
+  - name: fact_daily_recovery
+    description: "Daily recovery metrics fact table linking recovery data to user and date dimensions"
+    columns:
+      - name: recovery_sk
+        description: "Surrogate key for recovery record (unique identifier)"
+        tests:
+          - not_null
+          - unique
+      - name: user_sk
+        description: "Surrogate key linking to dim_user (when created)"
+        tests:
+          - not_null
+      - name: date_sk
+        description: "Surrogate key linking to dim_date"
+        tests:
+          - not_null
+      - name: recovery_score
+        description: "Recovery score as a percentage (0-100)"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+      - name: recovery_score_percentile
+        description: "Recovery score percentile (not available in source data)"
+      - name: hrv_rmssd
+        description: "Heart rate variability RMSSD in seconds (converted from milliseconds)"
+        tests:
+          - not_null
+      - name: hrv_percentile
+        description: "HRV percentile (not available in source data)"
+      - name: resting_heart_rate
+        description: "Resting heart rate in beats per minute"
+        tests:
+          - not_null
+      - name: rhr_percentile
+        description: "Resting heart rate percentile (not available in source data)"
+      - name: sleep_performance_percentage
+        description: "Sleep performance percentage (requires future sleep data join)"
+      - name: sleep_consistency_percentage
+        description: "Sleep consistency percentage (requires future sleep data join)"
+      - name: sleep_efficiency_percentage
+        description: "Sleep efficiency percentage (requires future sleep data join)"
+      - name: skin_temp_celsius
+        description: "Skin temperature in degrees Celsius"
+      - name: skin_temp_deviation
+        description: "Skin temperature deviation from baseline (requires baseline calculation)"
+      - name: respiratory_rate
+        description: "Respiratory rate (not available in current recovery data)"
+      - name: created_timestamp
+        description: "When the recovery record was created"
+        tests:
+          - not_null
+      - name: source_updated_at
+        description: "When the source recovery record was last updated"
+      - name: source_user_id
+        description: "Original user ID from source system"
+        tests:
+          - not_null
+      - name: source_cycle_id
+        description: "Original cycle ID from source system"
+
+# Note: dim_date table is managed manually in Snowflake, not through dbt

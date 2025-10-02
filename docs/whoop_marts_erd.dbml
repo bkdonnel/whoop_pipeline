@@ -1,0 +1,99 @@
+// Whoop Marts Schema - ERD for dbdiagram.io
+// Paste this entire file into https://dbdiagram.io/d
+
+// Dimension Tables
+Table dim_user {
+  user_sk NUMBER [pk, not null]
+  user_id TEXT
+  first_name TEXT
+  last_name TEXT
+  email TEXT
+  birth_date DATE
+  gender TEXT
+  height_cm NUMBER
+  weight_kg NUMBER
+  timezone TEXT
+  created_at DATE
+  is_active BOOLEAN
+  effective_date DATE
+  expiry_date DATE
+  is_current BOOLEAN
+
+  Note: 'User dimension with SCD Type 2'
+}
+
+Table dim_date {
+  date_sk NUMBER [pk, not null]
+  date_day DATE
+  year_number NUMBER
+  quarter_of_year NUMBER
+  month_of_year NUMBER
+  month_name TEXT
+  day_of_month NUMBER
+  day_of_week NUMBER
+  day_name TEXT
+  day_of_year NUMBER
+  week_of_year NUMBER
+  is_weekday BOOLEAN
+  date_day_name TEXT
+  month_year_name TEXT
+  season TEXT
+  training_period TEXT
+  days_from_today NUMBER
+
+  Note: 'Date dimension with calendar attributes'
+}
+
+// Fact Tables
+Table fact_daily_recovery {
+  recovery_sk NUMBER [pk]
+  user_sk NUMBER [ref: > dim_user.user_sk]
+  date_sk NUMBER [ref: > dim_date.date_sk]
+  recovery_score NUMBER
+  recovery_score_percentile NUMBER
+  hrv_rmssd NUMBER
+  hrv_percentile NUMBER
+  resting_heart_rate NUMBER
+  rhr_percentile NUMBER
+  sleep_performance_percentage NUMBER
+  sleep_consistency_percentage NUMBER
+  sleep_efficiency_percentage NUMBER
+  skin_temp_celsius NUMBER
+  skin_temp_deviation NUMBER
+  respiratory_rate NUMBER
+  created_timestamp TIMESTAMP
+  source_updated_at TIMESTAMP
+  source_user_id TEXT
+  source_cycle_id TEXT
+
+  Note: 'Daily recovery metrics including HRV, RHR, and sleep'
+}
+
+Table fact_daily_strain {
+  strain_sk TEXT [pk]
+  user_sk NUMBER [ref: > dim_user.user_sk]
+  date_sk NUMBER [ref: > dim_date.date_sk]
+  day_strain NUMBER
+  workout_strain NUMBER
+  optimal_strain_min TEXT
+  optimal_strain_max TEXT
+  calories_burned NUMBER
+  average_heart_rate NUMBER
+  max_heart_rate NUMBER
+  zone_0_minutes NUMBER
+  zone_1_minutes NUMBER
+  zone_2_minutes NUMBER
+  zone_3_minutes NUMBER
+  zone_4_minutes NUMBER
+  zone_5_minutes NUMBER
+  workout_count NUMBER
+  total_workout_minutes NUMBER
+  max_workout_strain NUMBER
+  workout_types ARRAY
+  created_timestamp TIMESTAMP
+  source_created_at TIMESTAMP
+  source_updated_at TIMESTAMP
+  cycle_date DATE
+
+  Note: 'Daily strain metrics with workout details and HR zones'
+}

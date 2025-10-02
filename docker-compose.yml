@@ -80,3 +80,23 @@ services:
       - dbt
     depends_on:
       - dbt-run
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: streamlit_app/Dockerfile.streamlit
+    container_name: whoop-streamlit
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./streamlit_app:/app/streamlit_app
+      - ./.env:/app/.env
+    working_dir: /app
+    ports:
+      - "8501:8501"
+    command: streamlit run streamlit_app/streamlit_dashboard.py --server.port=8501 --server.address=0.0.0.0
+    profiles:
+      - streamlit
