@@ -2,7 +2,7 @@
 
 A production-grade data pipeline that extracts, transforms, and visualizes personal health metrics from the Whoop API. This project demonstrates end-to-end data engineering skills including API integration, incremental ETL, dimensional modeling, and interactive dashboards.
 
-## 🎯 Project Overview
+## Project Overview
 
 This pipeline processes biometric data from Whoop wearables, transforming raw health metrics into actionable insights through a modern data stack. The system runs on Astronomer Cloud (Apache Airflow) with automated orchestration, error handling, and data quality checks.
 
@@ -13,7 +13,7 @@ This pipeline processes biometric data from Whoop wearables, transforming raw he
 - **Interactive Dashboard**: Real-time visualizations with Streamlit
 - **Production Orchestration**: Scheduled DAGs on Astronomer Cloud running every 3 hours
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Whoop API → Airflow (Astronomer) → Snowflake → dbt → Streamlit Dashboard
@@ -27,7 +27,7 @@ Whoop API → Airflow (Astronomer) → Snowflake → dbt → Streamlit Dashboard
 - **Languages**: Python, SQL
 - **Authentication**: OAuth2 with automatic token refresh
 
-## 📊 Data Model
+## Data Model
 
 The pipeline implements a **star schema** data warehouse optimized for analytical queries:
 
@@ -51,7 +51,7 @@ The pipeline implements a **star schema** data warehouse optimized for analytica
 
 ![ERD Diagram](docs/erd_diagram.png)
 
-## 🚀 Pipeline Flow
+## Pipeline Flow
 
 ### 1. Data Extraction
 - Connects to Whoop API using OAuth2 authentication
@@ -85,7 +85,7 @@ Each dbt model runs as a separate Airflow task with:
 - Date range filtering (Last 7/30/90/365 days or All Time)
 - Real-time metric calculations and trend visualizations
 
-## 📈 Key Metrics Explained
+## Key Metrics Explained
 
 **Recovery Momentum**: Tracks recovery score velocity over multiple time windows to identify improving or declining trends
 
@@ -99,7 +99,7 @@ Each dbt model runs as a separate Airflow task with:
 
 **Seasonal Adaptation**: Identifies seasonal patterns in recovery to adjust training based on environmental factors
 
-## 🛠️ Setup & Deployment
+## Setup & Deployment
 
 ### Prerequisites
 - Python 3.9+
@@ -149,7 +149,7 @@ docker-compose up streamlit
 # Access at http://localhost:8501
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 whoop_pipeline/
@@ -184,12 +184,12 @@ whoop_pipeline/
 └── README.md                       # This file
 ```
 
-## 🔄 Data Pipeline Schedule
+## Data Pipeline Schedule
 
 **Production DAG**: `whoop_pipeline_cosmos_simple`
 - **Schedule**: Every 3 hours
 - **Expected records per run**: 0-25 (incremental extraction)
-- **Status**: ✅ Fully operational
+- **Status**: Fully operational
 
 ## 🧪 Data Quality & Testing
 
@@ -206,7 +206,7 @@ whoop_pipeline/
 - State management prevents duplicate processing
 - Rate limit handling with exponential backoff
 
-## 📊 Dashboard Features
+## Dashboard Features
 
 - **6 Interactive Tabs**: One for each custom metric
 - **Date Range Filtering**: Dynamically filter all visualizations
@@ -240,7 +240,7 @@ whoop_pipeline/
 - Interactive data visualization with Plotly
 - Dynamic filtering and aggregation
 
-## 🔐 Security & Best Practices
+## Security & Best Practices
 
 - OAuth2 token refresh handled via Airflow Variables
 - Snowflake credentials stored securely in environment variables
@@ -248,7 +248,7 @@ whoop_pipeline/
 - State management prevents duplicate data processing
 - Comprehensive error handling and logging
 
-## 📝 Lessons Learned
+## Lessons Learned
 
 ### Challenges Overcome
 1. **API Rate Limiting**: Implemented exponential backoff with 60-second delays for 429 errors
@@ -264,17 +264,17 @@ whoop_pipeline/
 - Task-level isolation in Airflow for easier debugging
 - Comprehensive documentation for knowledge transfer
 
-## 🚦 Current Status
+## Current Status
 
-**Pipeline Status**: ✅ Production-ready and operational
+**Pipeline Status**: Production-ready and operational
 - Deployed on Astronomer Cloud
 - Running every 3 hours
 - All data quality tests passing
 - Dashboard accessible via Docker
 
-## 📧 Contact
+## Contact
 
-For questions or collaboration opportunities, please reach out via [LinkedIn](https://linkedin.com/in/yourprofile) or [email](mailto:your.email@example.com).
+For questions or collaboration opportunities, please reach out via [LinkedIn](https://www.linkedin.com/in/bryan-donnelly-1149676a/) or [email](mailto:donnelly.bryand@gmail.com).
 
 ---
 
