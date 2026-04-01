@@ -15,7 +15,7 @@ from .utils.snowflake_client import SnowflakeClient
 class IncrementalWhoopExtractor:
     def __init__(self, snowflake_conn):
         self.state_manager = StateManager(snowflake_conn)
-        self.base_url = "https://api.prod.whoop.com/developer/v1"
+        self.base_url = "https://api.prod.whoop.com/developer/v2"
         # ... existing auth setup
 
         # Initialize auth and snowflake client

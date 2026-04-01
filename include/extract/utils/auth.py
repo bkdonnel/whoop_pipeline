@@ -114,7 +114,7 @@ class WhoopAuth:
         
         # Test if current token is valid
         test_response = requests.get(
-            'https://api.prod.whoop.com/developer/v1/user/profile/basic',
+            'https://api.prod.whoop.com/developer/v2/user/profile/basic',
             headers={'Authorization': f'Bearer {access_token}'}
         )
         
