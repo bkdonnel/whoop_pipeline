@@ -1,9 +1,29 @@
 import os
 import sys
+import requests
 import snowflake.connector
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from include.extract.whoop_extractor import IncrementalWhoopExtractor
+
+# Refresh Whoop token at the start of every run
+print('Refreshing Whoop access token...')
+token_response = requests.post(
+    'https://api.prod.whoop.com/oauth/oauth2/token',
+    data={
+        'grant_type': 'refresh_token',
+        'client_id': os.getenv('WHOOP_CLIENT_ID'),
+        'client_secret': os.getenv('WHOOP_CLIENT_SECRET'),
+        'refresh_token': os.getenv('WHOOP_REFRESH_TOKEN'),
+    }
+)
+if token_response.status_code != 200:
+    print(f'Token refresh failed: {token_response.status_code} - {token_response.text}')
+    sys.exit(1)
+
+token_data = token_response.json()
+os.environ['WHOOP_ACCESS_TOKEN'] = token_data['access_token']
+print('Token refreshed successfully.')
 
 pem_key = os.getenv('NEW_SNOWFLAKE_PRIVATE_KEY').encode()
 pk = serialization.load_pem_private_key(pem_key, password=None, backend=default_backend())
