@@ -17,4 +17,4 @@
 {# No transformations needed for user #}
 {% set transformations = {} %}
 
-{{ generate_staging_model('raw', 'user', column_casts, transformations) }}
+{{ generate_staging_model('raw', 'raw_user', column_casts, transformations) }}

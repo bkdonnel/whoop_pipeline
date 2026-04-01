@@ -21,14 +21,21 @@ class SnowflakeClient:
     def _connect(self):
         """Establish connection to Snowflake"""
         try:
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.backends import default_backend
+
+            pem_key = os.getenv('NEW_SNOWFLAKE_PRIVATE_KEY').encode()
+            private_key_obj = serialization.load_pem_private_key(
+                pem_key, password=None, backend=default_backend()
+            )
+
             self.connection = snowflake.connector.connect(
                 user=os.getenv('SNOWFLAKE_USER'),
-                password=os.getenv('SNOWFLAKE_PASSWORD'),
+                private_key=private_key_obj,
                 account=os.getenv('SNOWFLAKE_ACCOUNT'),
                 warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
                 database=os.getenv('SNOWFLAKE_DATABASE'),
                 schema=os.getenv('SNOWFLAKE_SCHEMA'),
-                insecure_mode=True  # Disable OCSP checking for certificate validation issues
             )
             self.cursor = self.connection.cursor()
             print("Successfully connected to Snowflake")
@@ -100,17 +107,17 @@ class SnowflakeClient:
     def _insert_json_data(self, table_name: str, data: List[Dict[str, Any]]):
         """Insert data into the structured tables with proper column mapping"""
         # Determine which table we're inserting into and use appropriate mapper
-        table_suffix = table_name.split('.')[-1]  # Extract 'cycle', 'sleep', etc.
-        
-        if table_suffix == 'cycle':
+        table_suffix = table_name.split('.')[-1]  # Extract 'raw_cycle', 'raw_sleep', etc.
+
+        if table_suffix == 'raw_cycle':
             self._insert_cycle_data(data)
-        elif table_suffix == 'sleep':
+        elif table_suffix == 'raw_sleep':
             self._insert_sleep_data(data)
-        elif table_suffix == 'recovery':
+        elif table_suffix == 'raw_recovery':
             self._insert_recovery_data(data)
-        elif table_suffix == 'workout':
+        elif table_suffix == 'raw_workout':
             self._insert_workout_data(data)
-        elif table_suffix == 'user':
+        elif table_suffix == 'raw_user':
             self._insert_user_data(data)
         else:
             raise ValueError(f"Unknown table type: {table_suffix}")
@@ -118,7 +125,7 @@ class SnowflakeClient:
     def _insert_cycle_data(self, data: List[Dict[str, Any]]):
         """Insert cycle data with proper column mapping"""
         sql = """
-            INSERT INTO raw.cycle (
+            INSERT INTO BRYAN.raw_cycle (
                 id, user_id, created_at, updated_at, start_time, end_time,
                 timezone_offset, score_state, strain, kilojoule, 
                 average_heart_rate, max_heart_rate
@@ -150,7 +157,7 @@ class SnowflakeClient:
     def _insert_sleep_data(self, data: List[Dict[str, Any]]):
         """Insert sleep data with proper column mapping"""
         sql = """
-            INSERT INTO raw.sleep (
+            INSERT INTO BRYAN.raw_sleep (
                 id, v1_id, user_id, created_at, updated_at, start_time, end_time,
                 timezone_offset, nap, score_state, total_in_bed_time_milli,
                 total_awake_time_milli, total_no_data_time_milli, total_light_sleep_time_milli,
@@ -204,7 +211,7 @@ class SnowflakeClient:
     def _insert_recovery_data(self, data: List[Dict[str, Any]]):
         """Insert recovery data with proper column mapping"""
         sql = """
-            INSERT INTO raw.recovery (
+            INSERT INTO BRYAN.raw_recovery (
                 cycle_id, sleep_id, user_id, created_at, updated_at,
                 score_state, user_calibrating, recovery_score, resting_heart_rate,
                 hrv_rmssd_milli, spo2_percentage, skin_temp_celsius
@@ -236,7 +243,7 @@ class SnowflakeClient:
     def _insert_workout_data(self, data: List[Dict[str, Any]]):
         """Insert workout data with proper column mapping"""
         sql = """
-            INSERT INTO raw.workout (
+            INSERT INTO BRYAN.raw_workout (
                 id, v1_id, user_id, created_at, updated_at, start_time, end_time,
                 timezone_offset, sport_name, score_state, sport_id, strain,
                 average_heart_rate, max_heart_rate, kilojoule, percent_recorded,
@@ -286,7 +293,7 @@ class SnowflakeClient:
     def _insert_user_data(self, data: List[Dict[str, Any]]):
         """Insert user data with proper column mapping"""
         sql = """
-            INSERT INTO raw.user (
+            INSERT INTO BRYAN.raw_user (
                 user_id, email, first_name, last_name, created_at, updated_at
             ) VALUES (%s, %s, %s, %s, %s, %s)
         """

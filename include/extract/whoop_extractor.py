@@ -26,31 +26,31 @@ class IncrementalWhoopExtractor:
         self.endpoints = {
             'cycle':{
                 'url': f"{self.base_url}/cycle",
-                'table_name': 'raw.cycle',
+                'table_name': 'BRYAN.raw_cycle',
                 'supports_incremental': True,
                 'time_field': 'updated_at'
             },
             'sleep':{
                 'url': f"{self.base_url}/activity/sleep",
-                'table_name': 'raw.sleep',
+                'table_name': 'BRYAN.raw_sleep',
                 'supports_incremental': True,
                 'time_field': 'updated_at'
             },
             'recovery':{
                 'url': f"{self.base_url}/recovery",
-                'table_name': 'raw.recovery',
+                'table_name': 'BRYAN.raw_recovery',
                 'supports_incremental': True,
                 'time_field': 'updated_at'
             },
             'workout':{
                 'url': f"{self.base_url}/activity/workout",
-                'table_name': 'raw.workout',
+                'table_name': 'BRYAN.raw_workout',
                 'supports_incremental': True,
                 'time_field': 'updated_at'
             },
             'user': {
                 'url': f"{self.base_url}/user/profile/basic",
-                'table_name': 'raw.user',
+                'table_name': 'BRYAN.raw_user',
                 'supports_incremental': False,
                 'time_field': None
             }

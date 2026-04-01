@@ -1,0 +1,84 @@
+name: Whoop Daily Pipeline
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Daily at 8 AM UTC
+  workflow_dispatch:       # Allow manual trigger from GitHub UI
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      NEW_SNOWFLAKE_PRIVATE_KEY: ${{ secrets.NEW_SNOWFLAKE_PRIVATE_KEY }}
+      SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+      SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+      SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+      WHOOP_CLIENT_ID: ${{ secrets.WHOOP_CLIENT_ID }}
+      WHOOP_CLIENT_SECRET: ${{ secrets.WHOOP_CLIENT_SECRET }}
+      WHOOP_ACCESS_TOKEN: ${{ secrets.WHOOP_ACCESS_TOKEN }}
+      WHOOP_REFRESH_TOKEN: ${{ secrets.WHOOP_REFRESH_TOKEN }}
+      WHOOP_REDIRECT_URI: ${{ secrets.WHOOP_REDIRECT_URI }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements-pipeline.txt
+
+      - name: Extract Whoop data
+        run: python -c "
+from include.extract.utils.snowflake_client import SnowflakeClient
+from include.extract.whoop_extractor import IncrementalWhoopExtractor
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+import snowflake.connector, os
+
+pem_key = os.getenv('NEW_SNOWFLAKE_PRIVATE_KEY').encode()
+pk = serialization.load_pem_private_key(pem_key, password=None, backend=default_backend())
+
+conn = snowflake.connector.connect(
+    user=os.getenv('SNOWFLAKE_USER'),
+    account=os.getenv('SNOWFLAKE_ACCOUNT'),
+    private_key=pk,
+    warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
+    database=os.getenv('SNOWFLAKE_DATABASE'),
+    role=os.getenv('SNOWFLAKE_ROLE'),
+)
+
+extractor = IncrementalWhoopExtractor(conn)
+for endpoint in ['sleep', 'cycle', 'workout', 'recovery', 'user']:
+    try:
+        count = extractor.safe_extract_with_retry(endpoint)
+        print(f'{endpoint}: {count} records')
+    except Exception as e:
+        print(f'{endpoint} failed: {e}')
+
+conn.close()
+"
+
+      - name: Run dbt deps
+        working-directory: include/dbt
+        run: dbt deps --profiles-dir . --project-dir .
+
+      - name: Run dbt staging models
+        working-directory: include/dbt
+        run: dbt run --select tag:staging --profiles-dir . --project-dir .
+
+      - name: Run dbt marts models
+        working-directory: include/dbt
+        run: dbt run --select tag:marts --profiles-dir . --project-dir .
+
+      - name: Run dbt tests
+        working-directory: include/dbt
+        run: dbt test --profiles-dir . --project-dir .

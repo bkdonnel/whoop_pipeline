@@ -50,7 +50,7 @@
 } %}
 
 WITH ranked_data AS (
-    {{ generate_staging_model('raw', 'sleep', column_casts, transformations) }}
+    {{ generate_staging_model('raw', 'raw_sleep', column_casts, transformations) }}
     
     {% if is_incremental() %}
     WHERE ingested_at > (SELECT COALESCE(MAX(ingested_at), '1900-01-01') FROM {{ this }})

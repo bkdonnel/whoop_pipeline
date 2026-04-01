@@ -3,18 +3,18 @@ version: 2
 sources:
   - name: raw
     description: "Raw data from Whoop API extraction"
-    database: whoop
-    schema: raw
+    database: DATAEXPERT_STUDENT
+    schema: BRYAN
     tables:
-      - name: sleep
+      - name: raw_sleep
         description: "Raw sleep data from Whoop API"
-      - name: cycle
-        description: "Raw cycle data from Whoop API"  
-      - name: workout
+      - name: raw_cycle
+        description: "Raw cycle data from Whoop API"
+      - name: raw_workout
         description: "Raw workout data from Whoop API"
-      - name: recovery
+      - name: raw_recovery
         description: "Raw recovery data from Whoop API"
-      - name: user
+      - name: raw_user
         description: "Raw user profile data from Whoop API"
 
 models:

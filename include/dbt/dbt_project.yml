@@ -18,14 +18,9 @@ clean-targets:
 
 models:
   whoop_dbt:
-    raw:
-      +schema: raw
-      +materialized: view
     staging:
-      +schema: staging
       +materialized: incremental
       +tags: ['staging']
     marts:
-      +schema: marts
       +materialized: table
       +tags: ['marts']

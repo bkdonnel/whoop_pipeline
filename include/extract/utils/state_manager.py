@@ -11,7 +11,7 @@ class StateManager:
         """Get the last processed timestamp for a table"""
         cursor = self.conn.cursor()
         cursor.execute(
-            "SELECT last_processed_at FROM whoop.metadata.pipeline_state WHERE table_name = %s",
+            "SELECT last_processed_at FROM DATAEXPERT_STUDENT.BRYAN.pipeline_state WHERE table_name = %s",
             (table_name,)
         )
         result = cursor.fetchone()
@@ -22,7 +22,7 @@ class StateManager:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            MERGE INTO whoop.metadata.pipeline_state AS target
+            MERGE INTO DATAEXPERT_STUDENT.BRYAN.pipeline_state AS target
             USING (SELECT %s AS table_name, %s AS last_processed_at, %s AS status) AS source
             ON target.table_name = source.table_name
             WHEN MATCHED THEN UPDATE SET

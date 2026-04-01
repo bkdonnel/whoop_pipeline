@@ -25,7 +25,7 @@
 {% set transformations = {} %}
 
 WITH base AS (
-    {{ generate_staging_model('raw', 'recovery', column_casts, transformations) }}
+    {{ generate_staging_model('raw', 'raw_recovery', column_casts, transformations) }}
     
     {% if is_incremental() %}
     WHERE ingested_at > (SELECT COALESCE(MAX(ingested_at), '1900-01-01') FROM {{ this }})
