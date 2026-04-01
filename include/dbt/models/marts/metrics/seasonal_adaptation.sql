@@ -20,7 +20,7 @@ WITH seasonal_baselines AS (
     COUNT(*) as sample_size
     
   FROM {{ ref('fact_daily_recovery') }} r
-  JOIN whoop.marts.dim_date d ON r.date_sk = d.date_sk
+  JOIN {{ ref('dim_date') }} d ON r.date_sk = d.date_sk
   GROUP BY r.user_sk, d.season, d.year_number
 ),
 
@@ -61,7 +61,7 @@ current_vs_seasonal AS (
     r.skin_temp_celsius - sp.seasonal_skin_temp_baseline as skin_temp_deviation
     
   FROM {{ ref('fact_daily_recovery') }} r
-  JOIN whoop.marts.dim_date d ON r.date_sk = d.date_sk
+  JOIN {{ ref('dim_date') }} d ON r.date_sk = d.date_sk
   LEFT JOIN user_seasonal_patterns sp 
     ON r.user_sk = sp.user_sk AND d.season = sp.season
 )

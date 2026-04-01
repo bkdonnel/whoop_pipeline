@@ -67,10 +67,10 @@ fact_recovery AS (
         r.CYCLE_ID AS source_cycle_id
 
     FROM recovery_base r
-    INNER JOIN whoop.marts.dim_user u
+    INNER JOIN {{ ref('dim_user') }} u
         ON r.USER_ID = u.user_id
         AND u.is_current = TRUE  -- Only join with current user records
-    INNER JOIN whoop.marts.dim_date d
+    INNER JOIN {{ ref('dim_date') }} d
         ON DATE(r.CREATED_AT) = d.date_day
     LEFT JOIN {{ ref('int_recovery_percentiles') }} rp
         ON u.user_sk = rp.user_sk

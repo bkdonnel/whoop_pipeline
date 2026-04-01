@@ -48,8 +48,8 @@ cycle_with_keys AS (
         u.user_sk,
         d.date_sk
     FROM cycle_data c
-    LEFT JOIN whoop.marts.dim_user u ON u.user_id = c.USER_ID
-    LEFT JOIN whoop.marts.dim_date d ON d.date_day = c.cycle_date
+    LEFT JOIN {{ ref('dim_user') }} u ON u.user_id = c.USER_ID
+    LEFT JOIN {{ ref('dim_date') }} d ON d.date_day = c.cycle_date
     WHERE u.user_sk IS NOT NULL
         AND d.date_sk IS NOT NULL
 ),

@@ -18,8 +18,8 @@ WITH recovery_data AS (
        ,r.SKIN_TEMP_CELSIUS as skin_temp_celsius
        ,r.CREATED_AT
     FROM {{ ref('stg_recovery') }} r
-    LEFT JOIN whoop.marts.dim_user u ON r.USER_ID = u.user_id
-    LEFT JOIN whoop.marts.dim_date d ON DATE(r.CREATED_AT) = d.date_day
+    LEFT JOIN {{ ref('dim_user') }} u ON r.USER_ID = u.user_id
+    LEFT JOIN {{ ref('dim_date') }} d ON DATE(r.CREATED_AT) = d.date_day
     WHERE r.RECOVERY_SCORE IS NOT NULL
         AND u.user_sk IS NOT NULL
         AND d.date_sk IS NOT NULL
