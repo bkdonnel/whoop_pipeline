@@ -6,6 +6,11 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 from include.extract.whoop_extractor import IncrementalWhoopExtractor
 
+# Debug: confirm env vars are present
+for var in ['WHOOP_CLIENT_ID', 'WHOOP_CLIENT_SECRET', 'WHOOP_REFRESH_TOKEN', 'WHOOP_REDIRECT_URI']:
+    val = os.getenv(var)
+    print(f'{var}: {"SET (len=" + str(len(val)) + ")" if val else "NOT SET"}')
+
 # Refresh Whoop token at the start of every run
 print('Refreshing Whoop access token...')
 token_response = requests.post(
@@ -15,6 +20,7 @@ token_response = requests.post(
         'client_id': os.getenv('WHOOP_CLIENT_ID'),
         'client_secret': os.getenv('WHOOP_CLIENT_SECRET'),
         'refresh_token': os.getenv('WHOOP_REFRESH_TOKEN'),
+        'redirect_uri': os.getenv('WHOOP_REDIRECT_URI', 'http://localhost:8080/callback'),
     }
 )
 if token_response.status_code != 200:
