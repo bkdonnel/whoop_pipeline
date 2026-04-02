@@ -22,6 +22,8 @@ jobs:
       WHOOP_ACCESS_TOKEN: ${{ secrets.WHOOP_ACCESS_TOKEN }}
       WHOOP_REFRESH_TOKEN: ${{ secrets.WHOOP_REFRESH_TOKEN }}
       WHOOP_REDIRECT_URI: ${{ secrets.WHOOP_REDIRECT_URI }}
+      GH_PAT: ${{ secrets.WHOOP_PIPELINE_PAT }}
+      GH_REPO: ${{ github.repository }}
 
     steps:
       - name: Checkout
