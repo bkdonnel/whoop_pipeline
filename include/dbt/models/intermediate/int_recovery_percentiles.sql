@@ -2,7 +2,7 @@
     config(
         materialized='incremental',
         unique_key='date_sk',
-        tags=['staging', 'intermediate'],
+        tags=['marts'],
         incremental_strategy='merge'
     )
 }}
