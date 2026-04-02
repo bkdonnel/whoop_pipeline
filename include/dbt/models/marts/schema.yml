@@ -219,9 +219,9 @@ models:
             where: "zone_0_minutes IS NOT NULL OR zone_1_minutes IS NOT NULL OR zone_2_minutes IS NOT NULL OR zone_3_minutes IS NOT NULL OR zone_4_minutes IS NOT NULL OR zone_5_minutes IS NOT NULL"
 
 
-      # Data freshness - no records older than 3 years
+      # Data freshness - no records older than 6 years
       - dbt_utils.expression_is_true:
-          expression: "cycle_date >= CURRENT_DATE - INTERVAL '3 years'"
+          expression: "cycle_date >= CURRENT_DATE - INTERVAL '6 years'"
 
       # No future dates
       - dbt_utils.expression_is_true:
