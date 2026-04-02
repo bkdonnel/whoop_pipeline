@@ -24,12 +24,18 @@
 {# No transformations needed for recovery #}
 {% set transformations = {} %}
 
-WITH base AS (
+WITH ranked_data AS (
     {{ generate_staging_model('raw', 'raw_recovery', column_casts, transformations) }}
-    
+
     {% if is_incremental() %}
     WHERE ingested_at > (SELECT COALESCE(MAX(ingested_at), '1900-01-01') FROM {{ this }})
     {% endif %}
+),
+
+deduped AS (
+    SELECT *,
+           ROW_NUMBER() OVER (PARTITION BY CYCLE_ID ORDER BY ingested_at DESC, UPDATED_AT DESC) AS rn
+    FROM ranked_data
 )
 
-SELECT * FROM base
+SELECT * EXCLUDE (rn) FROM deduped WHERE rn = 1

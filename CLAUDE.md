@@ -87,6 +87,7 @@ SNOWFLAKE_SCHEMA=BRYAN
 SNOWFLAKE_WAREHOUSE=COMPUTE_WH
 SNOWFLAKE_ROLE=ALL_USERS_ROLE
 NEW_SNOWFLAKE_PRIVATE_KEY=<PEM private key contents>
+WHOOP_PIPELINE_PAT=<fine-grained PAT with Secrets read/write on this repo>
 ```
 
 ### Local Development (.env)
@@ -135,7 +136,9 @@ All tables land in `DATAEXPERT_STUDENT.BRYAN` schema with `raw_` prefix:
 - `DATAEXPERT_STUDENT.BRYAN.pipeline_state` (incremental state tracking)
 
 ### Rotating Refresh Tokens
-Whoop issues a new refresh token on every token refresh. Each GitHub Actions run consumes the current refresh token. The workflow updates `WHOOP_REFRESH_TOKEN` in GitHub Secrets after each successful run so the next run has a valid token. If a run fails mid-flight before saving the new token, you must run `get_whoop_tokens.py` locally to get fresh tokens.
+Whoop issues a new refresh token on every token refresh. `run_pipeline.py` automatically saves the new tokens back to GitHub Secrets via the GitHub API after each successful refresh, so the next run always has valid tokens. This requires `WHOOP_PIPELINE_PAT` (a fine-grained PAT with Secrets read/write on this repo) to be set in GitHub Secrets.
+
+If a run fails at the token refresh step before saving, you must run `get_whoop_tokens.py` locally to get fresh tokens and manually update `WHOOP_ACCESS_TOKEN` and `WHOOP_REFRESH_TOKEN` in GitHub Secrets.
 
 ## dbt Transformations
 
@@ -206,7 +209,8 @@ All objects in `DATAEXPERT_STUDENT.BRYAN`:
 ## Troubleshooting
 
 ### Token Issues
-- **"invalid_request" on token refresh**: Rotating refresh tokens — old token already consumed. Run `python get_whoop_tokens.py` locally for fresh tokens.
+- **"invalid_request" on token refresh**: Rotating refresh tokens — old token already consumed. Run `python get_whoop_tokens.py` locally for fresh tokens, then manually update `WHOOP_ACCESS_TOKEN` and `WHOOP_REFRESH_TOKEN` in GitHub Secrets.
+- **Token rotation stops working**: Check that `WHOOP_PIPELINE_PAT` is still valid (fine-grained PATs can expire). Regenerate and update the secret if needed.
 - **404 on API endpoints**: Check you're using v2 base URL. Whoop v1 was deprecated October 1, 2025.
 
 ### Snowflake Connection Issues
@@ -241,3 +245,4 @@ WHERE table_name = 'cycle';
 
 ## Additional Files
 - **MODELING.md**: Guide for implementing dimensional modeling with fact and dimension tables
+- **`get_whoop_tokens.py`**: Interactive OAuth flow — run locally when tokens are fully expired and need to be bootstrapped from scratch

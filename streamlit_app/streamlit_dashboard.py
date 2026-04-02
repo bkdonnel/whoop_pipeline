@@ -4,8 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import snowflake.connector
-from datetime import datetime, timedelta
-import os
 
 # Page config
 st.set_page_config(
@@ -32,44 +30,32 @@ st.markdown("""
 # Snowflake connection
 @st.cache_resource
 def get_snowflake_connection():
-    """Create Snowflake connection using environment variables"""
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.backends import default_backend
-    import base64
 
-    # Get private key from environment and decode (matches Airflow DAG approach)
-    private_key_str = os.getenv('SNOWFLAKE_PRIVATE_KEY')
-
-    # The private key is base64-encoded DER format
-    private_key_bytes = base64.b64decode(private_key_str)
-
-    # Load the DER-formatted private key
-    private_key_obj = serialization.load_der_private_key(
-        private_key_bytes,
+    private_key_obj = serialization.load_pem_private_key(
+        st.secrets["snowflake"]["private_key"].encode(),
         password=None,
         backend=default_backend()
     )
 
     return snowflake.connector.connect(
-        user=os.getenv('SNOWFLAKE_USER'),
-        account=os.getenv('SNOWFLAKE_ACCOUNT'),
+        user=st.secrets["snowflake"]["user"],
+        account=st.secrets["snowflake"]["account"],
         private_key=private_key_obj,
-        warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
-        database='WHOOP',
-        schema='MARTS',
-        role=os.getenv('SNOWFLAKE_ROLE'),
-        insecure_mode=True  # Disable OCSP certificate validation for Docker
+        warehouse=st.secrets["snowflake"]["warehouse"],
+        database=st.secrets["snowflake"]["database"],
+        schema=st.secrets["snowflake"]["schema"],
+        role=st.secrets["snowflake"]["role"],
     )
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def query_snowflake(query):
-    """Execute query and return DataFrame"""
     conn = get_snowflake_connection()
-    # Resume warehouse if suspended
     try:
-        conn.cursor().execute(f"ALTER WAREHOUSE {os.getenv('SNOWFLAKE_WAREHOUSE')} RESUME IF SUSPENDED")
+        conn.cursor().execute(f"ALTER WAREHOUSE {st.secrets['snowflake']['warehouse']} RESUME IF SUSPENDED")
     except:
-        pass  # Ignore if already running
+        pass
     df = pd.read_sql(query, conn)
     return df
 
@@ -84,7 +70,6 @@ date_range = st.sidebar.selectbox(
     index=1
 )
 
-# Convert date range to days
 date_mapping = {
     "Last 7 Days": 7,
     "Last 30 Days": 30,
@@ -94,7 +79,6 @@ date_mapping = {
 }
 days_back = date_mapping[date_range]
 
-# Build date filter
 if days_back:
     date_filter = f"WHERE d.date_day >= DATEADD(day, -{days_back}, CURRENT_DATE)"
 else:
@@ -141,8 +125,8 @@ with tab1:
         day_14_change,
         recovery_momentum_score,
         momentum_category
-    FROM whoop.marts.recovery_momentum rm
-    JOIN whoop.marts.dim_date d ON rm.date_sk = d.date_sk
+    FROM DATAEXPERT_STUDENT.BRYAN.recovery_momentum rm
+    JOIN DATAEXPERT_STUDENT.BRYAN.dim_date d ON rm.date_sk = d.date_sk
     {date_filter}
     ORDER BY d.date_day
     """
@@ -168,7 +152,6 @@ with tab1:
             latest_change = df_momentum.iloc[-1]['DAY_1_CHANGE']
             st.metric("Yesterday's Change", f"{latest_change:+.0f}", delta=f"{latest_change:+.0f}")
 
-        # Momentum score over time
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=df_momentum['DATE_DAY'],
@@ -187,7 +170,6 @@ with tab1:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        # Recovery score with momentum indicators
         fig2 = make_subplots(specs=[[{"secondary_y": True}]])
         fig2.add_trace(
             go.Scatter(x=df_momentum['DATE_DAY'], y=df_momentum['RECOVERY_SCORE'],
@@ -208,7 +190,6 @@ with tab1:
         fig2.update_yaxes(title_text="Daily Change", secondary_y=True)
         st.plotly_chart(fig2, use_container_width=True)
 
-        # Momentum category distribution
         category_counts = df_momentum['MOMENTUM_CATEGORY'].value_counts()
         fig3 = px.pie(
             values=category_counts.values,
@@ -217,6 +198,8 @@ with tab1:
             color_discrete_sequence=px.colors.sequential.RdBu
         )
         st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.info("No data available for the selected date range.")
 
 # ==================== TAB 2: Strain-Recovery Efficiency ====================
 with tab2:
@@ -233,8 +216,8 @@ with tab2:
         recovery_efficiency_ratio,
         efficiency_30day_avg,
         efficiency_category
-    FROM whoop.marts.strain_recovery_efficiency sre
-    JOIN whoop.marts.dim_date d ON sre.date_sk = d.date_sk
+    FROM DATAEXPERT_STUDENT.BRYAN.strain_recovery_efficiency sre
+    JOIN DATAEXPERT_STUDENT.BRYAN.dim_date d ON sre.date_sk = d.date_sk
     {date_filter}
     ORDER BY d.date_day
     """
@@ -254,9 +237,8 @@ with tab2:
 
         with col3:
             avg_30d = df_efficiency['EFFICIENCY_30DAY_AVG'].iloc[-1]
-            st.metric("30-Day Rolling Avg", f"{avg_30d:.2f}")
+            st.metric("30-Day Rolling Avg", f"{avg_30d:.2f}" if avg_30d is not None else "N/A")
 
-        # Efficiency ratio over time
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=df_efficiency['DATE_DAY'],
@@ -281,10 +263,7 @@ with tab2:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        # Strain vs Recovery scatter
-        # Create size column with absolute values (NaN and negative values cause errors)
         df_efficiency['size_col'] = df_efficiency['RECOVERY_EFFICIENCY_RATIO'].abs().fillna(1)
-
         fig2 = px.scatter(
             df_efficiency,
             x='DAY_STRAIN',
@@ -296,6 +275,8 @@ with tab2:
             hover_data={'RECOVERY_EFFICIENCY_RATIO': ':.2f', 'size_col': False}
         )
         st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("No data available for the selected date range.")
 
 # ==================== TAB 3: Training Readiness ====================
 with tab3:
@@ -312,8 +293,8 @@ with tab3:
         readiness_motivation_gap,
         gap_category,
         overtraining_risk_flag
-    FROM whoop.marts.training_readiness_gap trg
-    JOIN whoop.marts.dim_date d ON trg.date_sk = d.date_sk
+    FROM DATAEXPERT_STUDENT.BRYAN.training_readiness_gap trg
+    JOIN DATAEXPERT_STUDENT.BRYAN.dim_date d ON trg.date_sk = d.date_sk
     {date_filter}
     ORDER BY d.date_day
     """
@@ -325,7 +306,7 @@ with tab3:
 
         with col1:
             current_gap = df_readiness.iloc[-1]['READINESS_MOTIVATION_GAP']
-            st.metric("Current Gap", f"{current_gap:+.0f}")
+            st.metric("Current Gap", f"{current_gap:+.0f}" if current_gap is not None else "N/A")
 
         with col2:
             gap_category = df_readiness.iloc[-1]['GAP_CATEGORY']
@@ -339,10 +320,9 @@ with tab3:
             risk_days = df_readiness['OVERTRAINING_RISK_FLAG'].sum()
             st.metric("Risk Days", int(risk_days), delta=None if risk_days == 0 else "Warning")
 
-        # Readiness gap over time
         fig = go.Figure()
         colors = df_readiness['READINESS_MOTIVATION_GAP'].apply(
-            lambda x: 'red' if x < -20 else 'orange' if x < 0 else 'green'
+            lambda x: 'red' if x is not None and x < -20 else 'orange' if x is not None and x < 0 else 'green'
         )
         fig.add_trace(go.Bar(
             x=df_readiness['DATE_DAY'],
@@ -360,7 +340,6 @@ with tab3:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        # Body readiness vs recommendation
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(
             x=df_readiness['DATE_DAY'],
@@ -384,6 +363,8 @@ with tab3:
             height=400
         )
         st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("No data available for the selected date range.")
 
 # ==================== TAB 4: Recovery Volatility ====================
 with tab4:
@@ -399,8 +380,8 @@ with tab4:
         rv.volatility_coefficient,
         rv.volatility_trend,
         rv.volatility_category
-    FROM whoop.marts.recovery_volatility rv
-    JOIN whoop.marts.dim_date d ON rv.date_sk = d.date_sk
+    FROM DATAEXPERT_STUDENT.BRYAN.recovery_volatility rv
+    JOIN DATAEXPERT_STUDENT.BRYAN.dim_date d ON rv.date_sk = d.date_sk
     {date_filter}
     ORDER BY d.date_day
     """
@@ -412,17 +393,16 @@ with tab4:
 
         with col1:
             current_std = df_volatility['VOLATILITY_7D'].iloc[-1]
-            st.metric("7-Day Volatility", f"{current_std:.1f}")
+            st.metric("7-Day Volatility", f"{current_std:.1f}" if current_std is not None else "N/A")
 
         with col2:
             volatility_30d = df_volatility['VOLATILITY_30D'].iloc[-1]
-            st.metric("30-Day Volatility", f"{volatility_30d:.1f}")
+            st.metric("30-Day Volatility", f"{volatility_30d:.1f}" if volatility_30d is not None else "N/A")
 
         with col3:
             category = df_volatility.iloc[-1]['VOLATILITY_CATEGORY']
             st.metric("Volatility Category", category)
 
-        # Volatility over time
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_trace(
             go.Scatter(x=df_volatility['DATE_DAY'], y=df_volatility['RECOVERY_SCORE'],
@@ -443,7 +423,6 @@ with tab4:
         fig.update_yaxes(title_text="Volatility", secondary_y=True)
         st.plotly_chart(fig, use_container_width=True)
 
-        # Volatility trend
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(
             x=df_volatility['DATE_DAY'],
@@ -459,6 +438,8 @@ with tab4:
             height=400
         )
         st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("No data available for the selected date range.")
 
 # ==================== TAB 5: Autonomic Balance ====================
 with tab5:
@@ -474,8 +455,8 @@ with tab5:
         ab.hrv_rhr_ratio_7d_avg,
         ab.autonomic_balance_score,
         ab.balance_category
-    FROM whoop.marts.autonomic_balance ab
-    JOIN whoop.marts.dim_date d ON ab.date_sk = d.date_sk
+    FROM DATAEXPERT_STUDENT.BRYAN.autonomic_balance ab
+    JOIN DATAEXPERT_STUDENT.BRYAN.dim_date d ON ab.date_sk = d.date_sk
     {date_filter}
     ORDER BY d.date_day
     """
@@ -487,21 +468,20 @@ with tab5:
 
         with col1:
             current_hrv = df_ans.iloc[-1]['HRV_RMSSD']
-            st.metric("Current HRV", f"{current_hrv:.1f} ms")
+            st.metric("Current HRV", f"{current_hrv:.1f} ms" if current_hrv is not None else "N/A")
 
         with col2:
             current_rhr = df_ans.iloc[-1]['RESTING_HEART_RATE']
-            st.metric("Resting HR", f"{current_rhr:.0f} bpm")
+            st.metric("Resting HR", f"{current_rhr:.0f} bpm" if current_rhr is not None else "N/A")
 
         with col3:
             balance_score = df_ans.iloc[-1]['AUTONOMIC_BALANCE_SCORE']
-            st.metric("Balance Score", f"{balance_score:.0f}")
+            st.metric("Balance Score", f"{balance_score:.0f}" if balance_score is not None else "N/A")
 
         with col4:
             category = df_ans.iloc[-1]['BALANCE_CATEGORY']
             st.metric("Balance Category", category)
 
-        # HRV and RHR trends
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_trace(
             go.Scatter(x=df_ans['DATE_DAY'], y=df_ans['HRV_RMSSD'],
@@ -522,7 +502,6 @@ with tab5:
         fig.update_yaxes(title_text="Resting HR (bpm)", secondary_y=True)
         st.plotly_chart(fig, use_container_width=True)
 
-        # Autonomic balance score
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(
             x=df_ans['DATE_DAY'],
@@ -540,6 +519,8 @@ with tab5:
             height=400
         )
         st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("No data available for the selected date range.")
 
 # ==================== TAB 6: Seasonal Adaptation ====================
 with tab6:
@@ -556,8 +537,8 @@ with tab6:
         sa.recovery_deviation,
         sa.seasonal_adaptation_index,
         sa.adaptation_category
-    FROM whoop.marts.seasonal_adaptation sa
-    JOIN whoop.marts.dim_date d ON sa.date_sk = d.date_sk
+    FROM DATAEXPERT_STUDENT.BRYAN.seasonal_adaptation sa
+    JOIN DATAEXPERT_STUDENT.BRYAN.dim_date d ON sa.date_sk = d.date_sk
     {date_filter}
     ORDER BY d.date_day
     """
@@ -573,13 +554,12 @@ with tab6:
 
         with col2:
             seasonal_baseline = df_seasonal.iloc[-1]['SEASONAL_RECOVERY_BASELINE']
-            st.metric("Seasonal Baseline", f"{seasonal_baseline:.0f}%")
+            st.metric("Seasonal Baseline", f"{seasonal_baseline:.0f}%" if seasonal_baseline is not None else "N/A")
 
         with col3:
             category = df_seasonal.iloc[-1]['ADAPTATION_CATEGORY']
             st.metric("Adaptation", category)
 
-        # Recovery by season
         seasonal_summary = df_seasonal.groupby('SEASON').agg({
             'RECOVERY_SCORE': 'mean',
             'SEASONAL_ADAPTATION_INDEX': 'mean'
@@ -601,7 +581,6 @@ with tab6:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        # Seasonal adaptation index over time
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(
             x=df_seasonal['DATE_DAY'],
@@ -619,14 +598,13 @@ with tab6:
         )
         st.plotly_chart(fig2, use_container_width=True)
 
-        # Recovery deviation from seasonal baseline
         fig3 = go.Figure()
         fig3.add_trace(go.Bar(
             x=df_seasonal['DATE_DAY'],
             y=df_seasonal['RECOVERY_DEVIATION'],
             name='Deviation from Seasonal Baseline',
             marker_color=df_seasonal['RECOVERY_DEVIATION'].apply(
-                lambda x: 'green' if x > 0 else 'red'
+                lambda x: 'green' if x is not None and x > 0 else 'red'
             )
         ))
         fig3.update_layout(
@@ -636,6 +614,8 @@ with tab6:
             height=400
         )
         st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.info("No data available for the selected date range.")
 
 # Footer
 st.markdown("---")
