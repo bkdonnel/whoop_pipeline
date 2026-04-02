@@ -61,3 +61,7 @@ dbt/.user.yml
 dbt/package-lock.yml
 dbt/profiles*.yml
 *.sql.compiled
+include/dbt/target/
+include/dbt/dbt_packages/
+include/dbt/logs/
+include/dbt/.user.yml

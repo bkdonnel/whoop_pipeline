@@ -3,10 +3,6 @@
     tags=['marts']
 ) }}
 
-WITH date_spine AS (
-    {{ dbt_date.get_date_dimension('2020-01-01', '2030-12-31') }}
-)
-
 SELECT
     REPLACE(CAST(date_day AS VARCHAR), '-', '')::INTEGER AS date_sk,
     date_day,
@@ -25,4 +21,6 @@ SELECT
         WHEN month_of_year IN (6, 7, 8)   THEN 'Summer'
         WHEN month_of_year IN (9, 10, 11) THEN 'Fall'
     END AS season
-FROM date_spine
+FROM (
+    {{ dbt_date.get_date_dimension('2020-01-01', '2030-12-31') }}
+) AS date_spine
