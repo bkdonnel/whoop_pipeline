@@ -69,7 +69,6 @@ fact_recovery AS (
     FROM recovery_base r
     INNER JOIN {{ ref('dim_user') }} u
         ON r.USER_ID = u.user_id
-        AND u.is_current = TRUE  -- Only join with current user records
     INNER JOIN {{ ref('dim_date') }} d
         ON DATE(r.CREATED_AT) = d.date_day
     LEFT JOIN {{ ref('int_recovery_percentiles') }} rp

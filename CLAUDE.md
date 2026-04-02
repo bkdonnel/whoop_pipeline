@@ -4,427 +4,240 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a Python-based data extraction pipeline for the Whoop API. The project extracts user data from various Whoop endpoints (Cycle, Sleep, Recovery, Workout, User) and loads them directly to Snowflake tables. Runs as scheduled DAGs in Apache Airflow on Astronomer Cloud.
+This is a Python-based data extraction pipeline for the Whoop API. The project extracts user data from various Whoop v2 endpoints (Cycle, Sleep, Recovery, Workout, User) and loads them to Snowflake. Runs as a daily scheduled GitHub Actions workflow.
 
 ## Project Structure
 
 ```
 whoop_pipeline/
-├── dags/                     # Airflow DAGs
-│   ├── whoop_pipeline_dag.py # Main incremental extraction DAG
-│   ├── test_whoop_variables.py # Debug DAGs for troubleshooting
-│   └── debug_api_detailed.py
+├── .github/
+│   └── workflows/
+│       └── whoop_pipeline.yml    # GitHub Actions daily pipeline workflow
+├── dags/                         # Legacy Airflow DAGs (no longer used)
 ├── include/
-│   └── extract/              # Python extraction modules
-│       ├── whoop_extractor.py # Main extraction script
+│   └── extract/                  # Python extraction modules
+│       ├── whoop_extractor.py    # Main extraction script (Whoop API v2)
 │       └── utils/
-│           ├── auth.py        # OAuth2 authentication handler
-│           ├── snowflake_client.py # Snowflake database integration
-│           └── state_manager.py    # Pipeline state tracking
-├── include/dbt/              # dbt transformations
+│           ├── auth.py           # OAuth2 authentication handler
+│           ├── snowflake_client.py # Snowflake database integration (RSA key auth)
+│           └── state_manager.py  # Pipeline state tracking
+├── include/dbt/                  # dbt transformations
 │   ├── models/
-│   │   ├── staging/          # Staging models for raw data
+│   │   ├── staging/              # Staging models for raw data
 │   │   │   ├── stg_sleep.sql
 │   │   │   ├── stg_cycle.sql
 │   │   │   ├── stg_workout.sql
 │   │   │   ├── stg_recovery.sql
-│   │   │   └── schema.yml    # Model and source definitions
-│   │   └── marts/            # Dimensional models for analytics
-│   │       ├── dimensions/   # Dimension tables
-│   │       │   └── dim_date.sql # Date dimension with dbt-date package
-│   │       └── schema.yml    # Marts documentation and tests
+│   │   │   ├── stg_user.sql
+│   │   │   └── schema.yml        # Source definitions pointing to raw_* tables
+│   │   ├── intermediate/         # Intermediate analytics models
+│   │   │   └── int_recovery_percentiles.sql
+│   │   └── marts/                # Dimensional models for analytics
+│   │       ├── dimensions/
+│   │       │   ├── dim_date.sql  # Date dimension using Snowflake GENERATOR
+│   │       │   └── dim_user.sql  # User dimension
+│   │       ├── facts/
+│   │       │   ├── fact_daily_recovery.sql
+│   │       │   ├── fact_daily_strain.sql
+│   │       │   └── seasonal_adaptation.sql
+│   │       └── schema.yml
 │   ├── macros/
 │   │   ├── generate_staging_model.sql  # Automated staging model creation
 │   │   └── get_custom_schema.sql       # Schema naming logic
-│   ├── packages.yml          # dbt package dependencies (includes dbt-date)
-│   ├── dbt_project.yml       # dbt configuration
-│   └── profiles.yml          # Snowflake connection profile
-├── .env                     # Environment variables (credentials)
-├── .env.astronomer          # Astronomer-specific environment variables
-├── requirements.txt         # Python dependencies
-├── Dockerfile              # Container configuration
-├── docker-compose.yml     # Docker services (legacy)
-├── reset_state_dates.sql   # SQL script for resetting pipeline state
-└── README.md               # Project documentation
+│   ├── packages.yml              # dbt package dependencies (dbt-utils only)
+│   ├── dbt_project.yml           # dbt configuration (no +schema overrides)
+│   └── profiles.yml              # Snowflake connection profile
+├── run_pipeline.py               # Main pipeline script for GitHub Actions
+├── get_whoop_tokens.py           # Interactive OAuth flow to get fresh tokens
+├── requirements-pipeline.txt    # Lightweight dependencies (no Airflow)
+├── requirements.txt              # Full dependencies (legacy)
+├── .env                          # Local environment variables (gitignored)
+└── README.md                     # Project documentation
 ```
 
-## Deployment Commands
+## Current Production Setup
 
-### Astronomer Deployment
-```bash
-# Deploy to Astronomer Cloud
-astro deploy
+### GitHub Actions Workflow
+- **File**: `.github/workflows/whoop_pipeline.yml`
+- **Schedule**: Daily at 8 AM UTC
+- **Trigger**: Also supports manual `workflow_dispatch`
+- **Steps**: checkout → setup Python 3.11 → install requirements-pipeline.txt → run_pipeline.py → dbt deps → dbt staging → dbt marts → dbt test
 
-# Check deployment status
-astro deploy list
-
-# View logs
-astro deploy logs
-
-# Access Airflow UI: https://cmeujt9am0hm801p5xw58ivqw.astronomer.run/
-```
-
-## Cosmos Integration (Current Production Setup)
-
-### Live DAGs
-The project uses Astronomer Cosmos for dbt integration, providing superior debugging and observability:
-
-1. **`whoop_pipeline_cosmos_simple`** (PRODUCTION)
-   - Scheduled every 3 hours
-   - Full pipeline: extract → staging models → marts models → quality checks
-   - Each dbt model runs as separate Airflow task with dedicated logs
-   - Connection: `snowflake_cosmos` (configured in Airflow UI)
-   - Includes dimensional modeling with `dim_date` table
-
-2. **`whoop_pipeline_cosmos_test`** (TESTING/DEBUGGING)
-   - Manual trigger only
-   - Tests single model (`stg_user`)
-   - Useful for testing connection and debugging individual models
-
-### Cosmos Benefits Achieved
-- ✅ **Individual Task Debugging**: Each dbt model has dedicated Airflow task logs
-- ✅ **Isolated Failures**: One model failure doesn't stop the entire pipeline
-- ✅ **Clear Error Messages**: Specific dbt compilation/runtime errors (no more bash debugging)
-- ✅ **Task-Level Retries**: Retry individual models without rebuilding entire pipeline
-- ✅ **Native Airflow Integration**: Data lineage tracking and OpenLineage events
-- ✅ **Schema Change Handling**: Clear messages for incremental model conflicts
-
-### Connection Setup
-Cosmos uses Airflow connection `snowflake_cosmos` with:
-- **Type**: Snowflake
-- **Host**: Snowflake account 
-- **Login**: Snowflake username
-- **Extra**: JSON with account, warehouse, database, role, private_key_content
-
-### Local Development (Legacy)
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up authentication (interactive)
-python include/extract/utils/auth.py
-
-# Run data extraction locally
-python include/extract/whoop_extractor.py
-```
-
-### dbt Transformations (Docker - Legacy)
-**Prerequisites:**
-1. Ensure Snowflake credentials are properly set in `.env` file
-2. Raw data must be loaded into these Snowflake tables:
-   - `whoop.raw.sleep`
-   - `whoop.raw.cycle` 
-   - `whoop.raw.workout`
-   - `whoop.raw.recovery`
-
-```bash
-# Run all dbt steps (quick start)
-./run_dbt.sh
-
-# Or run individual steps:
-# Install dbt dependencies
-docker-compose --profile dbt run dbt-deps
-
-# Run all staging models (includes dependency installation)
-docker-compose --profile dbt run dbt-run
-
-# Run tests for all staging models  
-docker-compose --profile dbt run dbt-test
-
-# Debug connection issues
-docker run --rm --env-file .env -v $(pwd)/include/dbt:/app/dbt -w /app/dbt whoop_pipeline-dbt-run dbt debug
-```
+### Pipeline Entry Point
+`run_pipeline.py` is the main script:
+1. Refreshes Whoop OAuth token using stored refresh token
+2. Connects to Snowflake with RSA private key
+3. Extracts all 5 endpoints via `safe_extract_with_retry`
+4. Token refresh uses direct HTTP call (not `auth.py`) to handle rotating refresh tokens
 
 ## Configuration
 
-1. **Whoop API Setup**: Register at https://developer.whoop.com/ to get:
-   - Client ID
-   - Client Secret
-   - Set redirect URI (default: http://localhost:8080/callback)
+### GitHub Repository Secrets
+Set these in GitHub → Settings → Secrets and variables → Actions:
+```
+WHOOP_CLIENT_ID
+WHOOP_CLIENT_SECRET
+WHOOP_ACCESS_TOKEN
+WHOOP_REFRESH_TOKEN
+WHOOP_REDIRECT_URI=http://localhost:8080/callback
+SNOWFLAKE_ACCOUNT=AAB46027
+SNOWFLAKE_USER=BRYAN
+SNOWFLAKE_DATABASE=DATAEXPERT_STUDENT
+SNOWFLAKE_SCHEMA=BRYAN
+SNOWFLAKE_WAREHOUSE=COMPUTE_WH
+SNOWFLAKE_ROLE=ALL_USERS_ROLE
+NEW_SNOWFLAKE_PRIVATE_KEY=<PEM private key contents>
+```
 
-2. **Airflow Variables**: Set these in Astronomer UI (Admin → Variables):
-   ```
-   WHOOP_CLIENT_ID=your_client_id_here
-   WHOOP_CLIENT_SECRET=your_client_secret_here
-   WHOOP_ACCESS_TOKEN=your_access_token_here
-   WHOOP_REFRESH_TOKEN=your_refresh_token_here
-   WHOOP_REDIRECT_URI=http://localhost:8080/callback
-   ```
+### Local Development (.env)
+```
+WHOOP_CLIENT_ID=...
+WHOOP_CLIENT_SECRET=...
+WHOOP_ACCESS_TOKEN=...
+WHOOP_REFRESH_TOKEN=...
+WHOOP_REDIRECT_URI=http://localhost:8080/callback
+SNOWFLAKE_ACCOUNT=AAB46027
+SNOWFLAKE_USER=BRYAN
+SNOWFLAKE_DATABASE=DATAEXPERT_STUDENT
+SNOWFLAKE_SCHEMA=BRYAN
+SNOWFLAKE_WAREHOUSE=COMPUTE_WH
+SNOWFLAKE_ROLE=ALL_USERS_ROLE
+NEW_SNOWFLAKE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----
+```
 
-3. **Environment Variables**: Update `.env.astronomer` file with Snowflake credentials:
-   ```
-   # Snowflake
-   SNOWFLAKE_ACCOUNT=your_snowflake_account
-   SNOWFLAKE_USER=your_snowflake_user
-   SNOWFLAKE_PASSWORD=your_snowflake_password
-   SNOWFLAKE_ROLE=your_snowflake_role
-   SNOWFLAKE_WAREHOUSE=your_snowflake_warehouse
-   SNOWFLAKE_DATABASE=whoop
-   SNOWFLAKE_SCHEMA=raw
-   SNOWFLAKE_PRIVATE_KEY=your_rsa_private_key (base64 encoded)
-   ```
+### Snowflake Authentication
+Uses RSA private key (PEM format) stored in `NEW_SNOWFLAKE_PRIVATE_KEY`. The same key pair is shared with the `stock-market-streaming` project. `snowflake_client.py` uses `load_pem_private_key` (not DER conversion).
 
-4. **Authentication Flow**: Run auth setup once locally to get access/refresh tokens, then add them to Airflow Variables
+### Getting Fresh Whoop Tokens
+Run this locally when tokens expire:
+```bash
+python get_whoop_tokens.py
+```
+This starts a local HTTP server on port 8080 to capture the OAuth callback automatically and prints the new access and refresh tokens. Update them in `.env` and GitHub Secrets.
 
 ## Data Pipeline
 
-The pipeline extracts data directly to Snowflake tables in the `whoop.raw` schema:
-- `whoop.raw.cycle` - Physiological cycle data
-- `whoop.raw.sleep` - Sleep activity data  
-- `whoop.raw.recovery` - Recovery scores and metrics
-- `whoop.raw.workout` - Exercise and activity data
-- `whoop.raw.user` - User profile information
+### Whoop API
+- **Base URL**: `https://api.prod.whoop.com/developer/v2` (v1 deprecated October 1, 2025)
+- **Authentication**: OAuth2 with rotating refresh tokens
+- **Rate Limiting**: 60-second backoff for 429 errors, 1-second delay between pages
+- **Pagination**: 25 records per page
 
-### Pipeline Features
-- **Incremental Extraction**: Only pulls new data since last run (every 3 hours)
-- **State Management**: Tracks last processed timestamp per endpoint in `whoop.metadata.pipeline_state`
-- **Rate Limit Handling**: Automatically handles API rate limits with backoff and retry
-- **Data Validation**: Adds `_extracted_at` timestamp metadata to all records
-- **Error Recovery**: Comprehensive retry logic and state tracking
+### Raw Tables (Snowflake)
+All tables land in `DATAEXPERT_STUDENT.BRYAN` schema with `raw_` prefix:
+- `DATAEXPERT_STUDENT.BRYAN.raw_cycle`
+- `DATAEXPERT_STUDENT.BRYAN.raw_sleep`
+- `DATAEXPERT_STUDENT.BRYAN.raw_recovery`
+- `DATAEXPERT_STUDENT.BRYAN.raw_workout`
+- `DATAEXPERT_STUDENT.BRYAN.raw_user`
+- `DATAEXPERT_STUDENT.BRYAN.pipeline_state` (incremental state tracking)
+
+### Rotating Refresh Tokens
+Whoop issues a new refresh token on every token refresh. Each GitHub Actions run consumes the current refresh token. The workflow updates `WHOOP_REFRESH_TOKEN` in GitHub Secrets after each successful run so the next run has a valid token. If a run fails mid-flight before saving the new token, you must run `get_whoop_tokens.py` locally to get fresh tokens.
 
 ## dbt Transformations
 
-The pipeline includes dbt models to transform raw Whoop data through staging and marts layers using automated model generation:
-
-### Staging Models
-- `stg_sleep` - Sleep data with millisecond to hour/minute conversions
-- `stg_cycle` - Physiological cycle data with basic type casting
-- `stg_workout` - Exercise data with heart rate zone time conversions
-- `stg_recovery` - Recovery metrics with basic type casting
-- `stg_user` - User profile data
-
-### Marts Layer (Dimensional Models)
-- `dim_date` - Comprehensive date dimension using dbt-date package
-  - Date range: 2020-01-01 to 2027-12-31
-  - Includes season, training periods, and time-based analytics features
-  - Surrogate key generation with dbt_utils
-  - Ready for fact table joins and time-series analysis
-
-### Package Dependencies
-- **dbt-date**: Provides robust date dimension functionality
-- **dbt-utils**: Utility macros for surrogate keys and common transformations
-
-### Automated Model Generation
-Uses custom macros for consistent staging model creation:
-- `generate_staging_model()` - Creates standardized staging views
-- Static column definitions for reliable Docker/CI execution
-- Configurable transformations (e.g., milliseconds to hours/minutes)
-- Consistent type casting across all models
+### Schema Architecture
+All dbt models write to a single flat schema: `DATAEXPERT_STUDENT.BRYAN`. No sub-schemas. `dbt_project.yml` has no `+schema` overrides.
 
 ### Data Flow
 ```
-whoop.raw.*        → whoop.staging.stg_*      → whoop.marts.*
-whoop.raw.sleep    → whoop.staging.stg_sleep
-whoop.raw.cycle    → whoop.staging.stg_cycle
-whoop.raw.workout  → whoop.staging.stg_workout
-whoop.raw.recovery → whoop.staging.stg_recovery
-whoop.raw.user     → whoop.staging.stg_user
-                                               → whoop.marts.dim_date
+DATAEXPERT_STUDENT.BRYAN.raw_*  →  stg_*  →  int_*  →  dim_* / fact_*
 ```
 
-### Testing
-Comprehensive data quality tests include:
-- Uniqueness and not-null constraints for primary keys
-- Value range validations for metrics
-- Accepted values for categorical fields
-- Data type consistency checks
-- Date dimension validation (uniqueness, accepted values)
+### Staging Models (read from raw_* tables)
+- `stg_sleep` - Sleep data with millisecond-to-hour/minute conversions
+- `stg_cycle` - Physiological cycle data with type casting
+- `stg_workout` - Exercise data with heart rate zone time conversions
+- `stg_recovery` - Recovery metrics with type casting
+- `stg_user` - User profile data
 
-## API Integration
+Source definitions in `staging/schema.yml` point to:
+- `database: DATAEXPERT_STUDENT`, `schema: BRYAN`, tables named `raw_sleep`, `raw_cycle`, etc.
 
-- **Base URL**: https://api.prod.whoop.com/developer/v1
-- **Authentication**: OAuth2 with automatic token refresh via Airflow Variables
-- **Rate Limiting**: Built-in handling with 60-second backoff for 429 errors
-- **Pagination**: Automatic handling with 25 records per page (API limit)
-- **Scopes**: read:cycles read:recovery read:sleep read:workout read:profile offline
+### Intermediate Models
+- `int_recovery_percentiles` - Rolling 365-day percentile calculations for recovery metrics
+  - Uses `PERCENT_RANK()` window functions (tag: `marts`, runs after dim_user/dim_date)
+
+### Marts Layer
+- `dim_date` - Date dimension using Snowflake native GENERATOR (not dbt_date macro)
+- `dim_user` - User dimension with surrogate key via dbt_utils
+- `fact_daily_recovery` - Daily recovery metrics fact table
+- `fact_daily_strain` - Daily strain/workout metrics
+- `seasonal_adaptation` - Seasonal performance analysis
+
+### dim_date Implementation
+Uses Snowflake's native `GENERATOR` function (NOT `dbt_date.get_date_dimension()`). The dbt_date macro caused a recursive CTE error in Snowflake:
+```sql
+WITH date_spine AS (
+    SELECT DATEADD(day, SEQ4(), '2020-01-01'::date) AS date_day
+    FROM TABLE(GENERATOR(ROWCOUNT => 4020))
+)
+SELECT
+    REPLACE(CAST(date_day AS VARCHAR), '-', '')::INTEGER AS date_sk,
+    ...
+FROM date_spine WHERE date_day <= '2030-12-31'
+```
+
+### Package Dependencies
+- **dbt-utils**: Surrogate key generation and common transformations
+- (dbt-date removed — caused recursive CTE errors in Snowflake)
+
+### Running dbt Locally
+```bash
+cd include/dbt
+dbt deps
+dbt run --select staging
+dbt run --select marts
+dbt test
+```
+
+## Snowflake Schema Overview
+All objects in `DATAEXPERT_STUDENT.BRYAN`:
+- `raw_cycle`, `raw_sleep`, `raw_recovery`, `raw_workout`, `raw_user` - Raw API data
+- `pipeline_state` - Incremental extraction state
+- `stg_*` - Staging models
+- `int_recovery_percentiles` - Intermediate calculations
+- `dim_date`, `dim_user` - Dimension tables
+- `fact_daily_recovery`, `fact_daily_strain`, `seasonal_adaptation` - Fact tables
 
 ## Troubleshooting
 
-### Common Issues Fixed
-1. **400 Errors**: Fixed by changing from API v2 to v1 and using limit=25 (not 50)
-2. **429 Rate Limiting**: Handled with automatic 60-second backoff and 1-second delays between pages
-3. **Token Refresh Failures**: Fixed by using Airflow Variables instead of environment variables
-4. **Massive Backfills**: Avoided by resetting state table dates to recent dates instead of 2020
-5. **dbt Staging Tables Not Updating in Astronomer**: Missing `dbt deps` command in Astronomer DAG - local docker-compose worked because it included `dbt deps && dbt run --select tag:staging`
+### Token Issues
+- **"invalid_request" on token refresh**: Rotating refresh tokens — old token already consumed. Run `python get_whoop_tokens.py` locally for fresh tokens.
+- **404 on API endpoints**: Check you're using v2 base URL. Whoop v1 was deprecated October 1, 2025.
 
-### dbt Staging Model Issues
-If staging tables (`whoop.staging.stg_*`) are not updating in Astronomer but work locally:
+### Snowflake Connection Issues
+- **JWT token invalid**: Verify `NEW_SNOWFLAKE_PRIVATE_KEY` contains the correct PEM key for account `AAB46027` (BRYAN user). Check with `SELECT CURRENT_ACCOUNT()` in Snowflake.
+- **Account format**: Use just `AAB46027`, not `LYWBBPJ-AAB46027` (the locator prefix is not needed).
+- **Role**: `ALL_USERS_ROLE` — verify with `SELECT CURRENT_ROLE()`.
 
-**Root Cause 1**: The Astronomer dbt task was missing `dbt deps` while local docker-compose included it.
-
-**Solution 1**: Update the DAG's `run_dbt_staging` task to include:
-```bash
-/usr/local/bin/dbt deps --profiles-dir /usr/local/airflow/include/dbt --project-dir /usr/local/airflow/include/dbt
-```
-
-**Root Cause 2**: Missing `+schema: staging` in dbt_project.yml causing models to not be found by `--select tag:staging`.
-
-**Solution 2**: Update dbt_project.yml staging configuration to include schema:
-```yaml
-staging:
-  +schema: staging
-  +materialized: incremental
-  +tags: ['staging']
-```
-
-**Root Cause 3**: dbt version compatibility issues between local (1.7.18) and Astronomer (1.10.8) environments - selectors not working.
-
-**Solution 3**: Use explicit model names instead of selectors for dbt 1.10.8 compatibility:
-```bash
-# Instead of: --select tag:staging or --select models/staging
-# Use: --models stg_cycle stg_recovery stg_sleep stg_user stg_workout
-```
-
-**Debugging Steps**:
-1. Check DAG logs for `dbt list --select tag:staging` output - should show 5 models
-2. Verify `dbt run` exit code is 0, not 2 (error)
-3. Add comprehensive debugging to diagnose parsing issues:
-   ```bash
-   echo "=== Check file structure ==="
-   ls -la models/
-   ls -la models/staging/
-   echo "=== dbt debug ==="
-   /usr/local/bin/dbt debug --profiles-dir /path --project-dir /path
-   echo "=== List ALL models ==="
-   /usr/local/bin/dbt list --profiles-dir /path --project-dir /path
-   echo "=== List staging models by path ==="
-   /usr/local/bin/dbt list --select models/staging --profiles-dir /path --project-dir /path
-   echo "=== List models with staging tag ==="
-   /usr/local/bin/dbt list --select tag:staging --profiles-dir /path --project-dir /path
-   echo "=== Running dbt staging models by path ==="
-   /usr/local/bin/dbt run --select models/staging --profiles-dir /path --project-dir /path
-   ```
-
-**Final Solution Summary**:
-The issue was dbt 1.10.8 complete failure - even explicit model names fail with exit code 2 and produce zero output despite 6-second execution time. This indicates a fundamental dbt 1.10.8 bug or environment incompatibility.
-
-**SOLUTION 1 - Fixed V1 DAG (WORKING)**:
-Updated `whoop_pipeline_dag.py` to run all staging models explicitly instead of using selectors:
-```bash
-# Instead of: --select tag:staging (fails in dbt 1.10.8)
-# Use individual model runs:
-/usr/local/bin/dbt run --models stg_user --profiles-dir ... 
-/usr/local/bin/dbt run --models stg_sleep --profiles-dir ...
-/usr/local/bin/dbt run --models stg_cycle --profiles-dir ...
-/usr/local/bin/dbt run --models stg_recovery --profiles-dir ...
-/usr/local/bin/dbt run --models stg_workout --profiles-dir ...
-```
-
-**SOLUTION 2 - Direct SQL Approach**:
-Created `whoop_pipeline_dag_v2.py` that bypasses dbt entirely using direct SQL transformations:
-```python
-# Create staging tables with direct SQL instead of dbt
-def create_staging_tables(**context):
-    # Connect to Snowflake directly
-    # Execute CREATE OR REPLACE TABLE staging.stg_* AS SELECT ... FROM raw.*
-    # Include same transformations (ms to hours, type casting, etc.)
-```
-
-**dbt 1.10.8 Critical Issues Found**:
-1. **Selector failure**: `tag:staging` and `models/staging` return empty results
-2. **Silent execution failure**: `dbt run` produces zero output despite 6-second runtime
-3. **Exit code 2 with no error messages**: Indicates fundamental dbt environment issue
-4. **Local vs Astronomer incompatibility**: Same models work in dbt 1.7.18 but fail in 1.10.8
-
-**Available Solutions**:
-1. **Fixed V1 DAG** (RECOMMENDED): Use updated `whoop_pipeline_dag.py` with explicit model names
-2. **Direct SQL**: Use `whoop_pipeline_dag_v2.py` with Python + Snowflake connector
-3. **dbt version downgrade**: Request Astronomer to use dbt 1.7.x
-4. **Local dbt execution**: Run dbt transformations outside Astronomer environment
-
-**Comparison**:
-- **Local (working)**: `dbt deps && dbt run --select tag:staging` (dbt 1.7.18)
-- **Astronomer V1 (FIXED)**: Individual model runs `--models stg_*` (dbt 1.10.8)
-- **Astronomer V2 (working)**: Direct SQL transformations bypasses dbt
-
-**Current Production Setup**:
-- **DAG**: `whoop_pipeline_incremental` (V1 - Fixed)
-- **All 5 staging models run explicitly**: `stg_user`, `stg_sleep`, `stg_cycle`, `stg_recovery`, `stg_workout`
-- **Same transformations**: milliseconds to hours/minutes, proper type casting via dbt macros
-- **Schema**: Creates tables in correct `whoop.staging.*` schema
-
-**Verification**: 
-- **V1 DAG (Fixed)**: All staging tables should update after each run
-- **V2 DAG**: Alternative option using direct SQL
-- **Schema check**: Tables appear in `whoop.staging.*` schema
-- **Record counts**: All staging tables should match raw table counts
-
-### Debug DAGs
-- `test_whoop_variables`: Tests Airflow variable access and basic API calls
-- `debug_api_detailed`: Detailed API endpoint testing with different parameters
+### dbt Issues
+- **Recursive CTE error on dim_date**: Do not use `dbt_date.get_date_dimension()` macro — it generates internal CTEs that conflict with Snowflake. Use the `GENERATOR` approach in `dim_date.sql`.
+- **`is_current` column not found**: `dim_user` is a simple (non-SCD2) table. Do not reference `u.is_current` in joins.
+- **int_recovery_percentiles running during staging step**: This model has tag `['marts']` (not staging). It depends on `dim_user` and `dim_date` so it must run after them.
 
 ### State Management
-Reset pipeline state to avoid long backfills:
 ```sql
--- Check current state
-SELECT table_name, last_processed_at, last_run_status 
-FROM whoop.metadata.pipeline_state 
-ORDER BY table_name;
+-- Check current pipeline state
+SELECT * FROM DATAEXPERT_STUDENT.BRYAN.pipeline_state ORDER BY table_name;
 
--- Reset to recent dates if needed
-UPDATE whoop.metadata.pipeline_state 
-SET last_processed_at = '2024-08-25T00:00:00.000Z'
-WHERE table_name = 'user';
+-- Reset to avoid long backfills
+UPDATE DATAEXPERT_STUDENT.BRYAN.pipeline_state
+SET last_processed_at = '2025-01-01T00:00:00.000Z'
+WHERE table_name = 'cycle';
 ```
 
-## Production Schedule
-- **DAG**: `whoop_pipeline_cosmos_simple` (CURRENT PRODUCTION)
-- **Schedule**: Every 3 hours
-- **Pipeline Flow**: extract → staging models → intermediate models → marts models → quality checks
-- **Expected Records**: 0-25 records per endpoint per run (incremental)
-- **Deployment**: Astronomer Cloud (https://cmeujt9am0hm801p5xw58ivqw.astronomer.run/)
-- **Status**: ✅ **FULLY OPERATIONAL** (as of 2025-09-23)
+## Migration History
 
-## Schema Overview
-- **Raw Layer**: `whoop.raw.*` - Direct API extracts with minimal processing
-- **Staging Layer**: `whoop.staging.*` - Cleaned, typed, and transformed data
-- **Intermediate Layer**: `whoop.staging.*` - Advanced analytics and calculations
-  - `int_recovery_percentiles` - Rolling percentile calculations for recovery metrics
-- **Marts Layer**: `whoop.marts.*` - Dimensional models ready for analytics
-  - `dim_date` - Comprehensive date dimension with dbt-date package
-  - `dim_user` - User dimension table
-  - `fact_daily_recovery` - Daily recovery metrics fact table
-
-## Recent Fixes (September 2025)
-
-### ✅ Fixed: int_recovery_percentiles Model Issues
-**Problem**: Multiple errors preventing the intermediate recovery percentiles model from running:
-1. `PERCENT_RANK()` with sliding window frames not supported in Snowflake
-2. Invalid column references (`recovery_date` vs `CREATED_AT`)
-3. Post-hook index creation on non-hybrid tables
-
-**Solutions Applied**:
-1. **Manual Percentile Calculation**: Replaced `PERCENT_RANK()` with equivalent manual calculation using `SUM(CASE WHEN...)` and `COUNT()` to achieve identical mathematical results while supporting sliding window frames
-2. **Column Reference Fix**: Updated to use actual `stg_recovery` columns (`r.CREATED_AT`, `r.RECOVERY_SCORE`, `r.HRV_RMSSD_MILLI`, etc.)
-3. **Removed Post-Hook**: Eliminated index creation attempt on regular tables
-
-**Result**: `int_recovery_percentiles` now successfully calculates rolling 365-day percentiles for recovery metrics.
-
-### ✅ Fixed: fact_daily_recovery Test Failures
-**Problem**: `dbt_utils.expression_is_true` test causing SQL syntax errors when validating recovery score ranges (0-100).
-
-**Solution**: Replaced problematic test with `dbt_utils.accepted_range` test:
-```yaml
-# Before (failing):
-- dbt_utils.expression_is_true:
-    arguments:
-      expression: "recovery_score >= 0 AND recovery_score <= 100"
-
-# After (working):
-- dbt_utils.accepted_range:
-    min_value: 0
-    max_value: 100
-```
-
-**Result**: All data quality tests now pass successfully.
-
-### 🔧 Current Pipeline Status
-- **All Models**: ✅ Running successfully
-- **All Tests**: ✅ Passing
-- **Data Quality**: ✅ Validated with range checks and not-null constraints
-- **Percentile Calculations**: ✅ Working with 365-day rolling windows
-- **Deployment**: ✅ Image `deploy-2025-09-23T16-21-05` deployed successfully
+### March 2026: Full Infrastructure Migration
+1. **Snowflake**: Migrated from old account (TIBERSEPTIM/agcllyu-pl32467) to free account (BRYAN/AAB46027/DATAEXPERT_STUDENT)
+2. **Authentication**: Switched from password auth to RSA private key (PEM format), shared key with stock-market-streaming project
+3. **Orchestration**: Migrated from Astronomer Cloud Airflow → GitHub Actions (daily schedule)
+4. **Whoop API**: Migrated from v1 (deprecated) to v2
+5. **Schema**: Flattened from multi-schema (`whoop.raw.*`, `whoop.staging.*`, `whoop.marts.*`) to single schema (`DATAEXPERT_STUDENT.BRYAN.*`) with `raw_` prefix for raw tables
 
 ## Additional Files
-- **MODELING.md**: Comprehensive guide for implementing dimensional modeling with fact and dimension tables
-- **packages.yml**: Contains dbt package dependencies including dbt-date and dbt-utils
+- **MODELING.md**: Guide for implementing dimensional modeling with fact and dimension tables
