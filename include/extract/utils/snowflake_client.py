@@ -127,11 +127,11 @@ class SnowflakeClient:
         sql = """
             INSERT INTO BRYAN.raw_cycle (
                 id, user_id, created_at, updated_at, start_time, end_time,
-                timezone_offset, score_state, strain, kilojoule, 
-                average_heart_rate, max_heart_rate
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                timezone_offset, score_state, strain, kilojoule,
+                average_heart_rate, max_heart_rate, ingested_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        
+
         rows = []
         for record in data:
             score = record.get('score') or {}
@@ -147,7 +147,8 @@ class SnowflakeClient:
                 score.get('strain'),
                 score.get('kilojoule'),
                 score.get('average_heart_rate'),
-                score.get('max_heart_rate')
+                score.get('max_heart_rate'),
+                self._parse_timestamp(record.get('ingested_at'))
             )
             rows.append(row)
         
@@ -165,16 +166,16 @@ class SnowflakeClient:
                 sleep_cycle_count, disturbance_count, baseline_milli,
                 need_from_sleep_debt_milli, need_from_recent_strain_milli,
                 need_from_recent_nap_milli, respiratory_rate, sleep_performance_percentage,
-                sleep_consistency_percentage, sleep_efficiency_percentage
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                sleep_consistency_percentage, sleep_efficiency_percentage, ingested_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        
+
         rows = []
         for record in data:
             score = record.get('score') or {}
             stage_summary = score.get('stage_summary') or {}
             sleep_needed = score.get('sleep_needed') or {}
-            
+
             row = (
                 record.get('id'),
                 record.get('v1_id'),
@@ -201,7 +202,8 @@ class SnowflakeClient:
                 score.get('respiratory_rate'),
                 score.get('sleep_performance_percentage'),
                 score.get('sleep_consistency_percentage'),
-                score.get('sleep_efficiency_percentage')
+                score.get('sleep_efficiency_percentage'),
+                self._parse_timestamp(record.get('ingested_at'))
             )
             rows.append(row)
         
@@ -214,10 +216,10 @@ class SnowflakeClient:
             INSERT INTO BRYAN.raw_recovery (
                 cycle_id, sleep_id, user_id, created_at, updated_at,
                 score_state, user_calibrating, recovery_score, resting_heart_rate,
-                hrv_rmssd_milli, spo2_percentage, skin_temp_celsius
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                hrv_rmssd_milli, spo2_percentage, skin_temp_celsius, ingested_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        
+
         rows = []
         for record in data:
             score = record.get('score') or {}
@@ -233,7 +235,8 @@ class SnowflakeClient:
                 score.get('resting_heart_rate'),
                 score.get('hrv_rmssd_milli'),
                 score.get('spo2_percentage'),
-                score.get('skin_temp_celsius')
+                score.get('skin_temp_celsius'),
+                self._parse_timestamp(record.get('ingested_at'))
             )
             rows.append(row)
         
@@ -249,15 +252,15 @@ class SnowflakeClient:
                 average_heart_rate, max_heart_rate, kilojoule, percent_recorded,
                 distance_meter, altitude_gain_meter, altitude_change_meter,
                 zone_zero_milli, zone_one_milli, zone_two_milli, zone_three_milli,
-                zone_four_milli, zone_five_milli
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                zone_four_milli, zone_five_milli, ingested_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        
+
         rows = []
         for record in data:
             score = record.get('score') or {}
             zone_duration = score.get('zone_duration') or {}
-            
+
             row = (
                 record.get('id'),
                 record.get('v1_id'),
@@ -283,7 +286,8 @@ class SnowflakeClient:
                 zone_duration.get('zone_two_milli'),
                 zone_duration.get('zone_three_milli'),
                 zone_duration.get('zone_four_milli'),
-                zone_duration.get('zone_five_milli')
+                zone_duration.get('zone_five_milli'),
+                self._parse_timestamp(record.get('ingested_at'))
             )
             rows.append(row)
         

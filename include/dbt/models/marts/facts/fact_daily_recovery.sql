@@ -28,7 +28,7 @@ WITH recovery_base AS (
     FROM {{ ref('stg_recovery') }}
 
     {% if is_incremental() %}
-    WHERE INGESTED_AT > (SELECT COALESCE(MAX(created_timestamp), '1900-01-01') FROM {{ this }})
+    WHERE CREATED_AT > (SELECT COALESCE(MAX(created_timestamp), '1900-01-01') FROM {{ this }})
     {% endif %}
 ),
 

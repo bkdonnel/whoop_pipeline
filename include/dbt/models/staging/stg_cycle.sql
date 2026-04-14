@@ -29,13 +29,13 @@ WITH ranked_data AS (
     {{ generate_staging_model('raw', 'raw_cycle', column_casts, transformations) }}
     
     {% if is_incremental() %}
-    WHERE ingested_at > (SELECT COALESCE(MAX(ingested_at), '1900-01-01') FROM {{ this }})
+    WHERE CREATED_AT > (SELECT COALESCE(MAX(CREATED_AT), '1900-01-01') FROM {{ this }})
     {% endif %}
 ),
 
 deduped AS (
     SELECT *,
-           ROW_NUMBER() OVER (PARTITION BY ID ORDER BY ingested_at DESC, UPDATED_AT DESC) as rn
+           ROW_NUMBER() OVER (PARTITION BY ID ORDER BY UPDATED_AT DESC) as rn
     FROM ranked_data
 )
 
